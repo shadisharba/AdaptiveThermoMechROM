@@ -16,3 +16,5 @@ input/octahedron_combo_32x32x32.xdmf
 .idea/
 
 __pycache__/
+
+output/
