@@ -6,13 +6,14 @@ from operator import itemgetter
 from interpolate_fluctuation_modes import update_affine_decomposition, update_stress_localization
 from microstructures import *
 from optimize_alpha import opt1, opt2, opt4, naive, opt4_alphas
-from utilities import read_h5, construct_stress_localization, volume_average, plot_and_save, cm, cheap_err_indicator
+from utilities import read_h5, construct_stress_localization, volume_average, plot_and_save, cm, cheap_err_indicator, \
+    compute_err_indicator_efficient
 
 np.random.seed(0)
-file_name, data_path, temp1, temp2 = itemgetter('file_name', 'data_path', 'temp1', 'temp2')(microstructures[4])
+file_name, data_path, temp1, temp2 = itemgetter('file_name', 'data_path', 'temp1', 'temp2')(microstructures[3])
 print(file_name, '\t', data_path)
 
-n_tests = 100
+n_tests = 10
 n_hierarchical_levels = 5
 test_temperatures = np.linspace(temp1, temp2, num=n_tests)
 test_alphas = np.linspace(0, 1, num=n_tests)
@@ -26,23 +27,25 @@ strain_dof = mesh['strain_dof']
 global_gradient = mesh['global_gradient']
 n_gp = mesh['n_integration_points']
 n_phases = len(np.unique(mat_id))
-n_modes = ref[idx]['strain_localization'].shape[-1]
+n_modes = ref[0]['strain_localization'].shape[-1]
 
 # extract temperature dependent data from the reference solutions
 # such as: material stiffness and thermal strain at each temperature and for all phases
 ref_Cs = np.zeros((n_tests, *ref[0]['localization_mat_stiffness'].shape))  # n_tests x n_phases x 6 x 6
 ref_epss = np.zeros((n_tests, *ref[0]['localization_mat_thermal_strain'].shape))  # n_tests x n_phases x 6 x 1
 effSref = np.zeros((n_tests, strain_dof, n_modes))
+normalization_factor_mech = np.zeros((n_tests))
 for idx, alpha in enumerate(test_alphas):
     Eref = ref[idx]['strain_localization']
     ref_Cs[idx] = ref[idx]['localization_mat_stiffness']
     ref_epss[idx] = ref[idx]['localization_mat_thermal_strain']
+    normalization_factor_mech[idx] = ref[idx]['normalization_factor_mech']
     Sref = construct_stress_localization(Eref, ref_Cs[idx], ref_epss[idx], mat_id, n_gauss, strain_dof)
     effSref[idx] = volume_average(Sref)
 
 err_indicators, err_eff_S, err_eff_C, err_eff_eps = [np.zeros((n_hierarchical_levels, n_tests)) for _ in range(4)]
 interpolate_temp = lambda x1, x2, alpha: x1 + alpha * (x2 - x1)
-err = lambda x, y: la.norm(x - y) / la.norm(y) * 100 if la.norm(y) > 0 else la.norm(x - y)
+err = lambda x, y: la.norm(x - y) * 100 / np.maximum(la.norm(y), 1e-13)
 
 # alpha_all_levels is initialized with the first level of two samples
 alpha_all_levels = [np.linspace(0, 1, num=2)]
@@ -120,12 +123,14 @@ for level in range(n_hierarchical_levels):
         Capprox = effSopt[:6, :6]
         Cref = effSref[idx][:6, :6]
         err_eff_C[level, idx] = err(Capprox, Cref)
-        err_eff_eps[level, idx] = err(la.inv(Capprox) @ effSopt[:, -1], la.inv(Cref) @ effSref[idx][:, -1])
+        err_eff_eps[level, idx] = err(la.solve(Capprox, effSopt[:, -1]), la.solve(Cref, effSref[idx][:, -1]))
 
-    if not given_alpha_levels:
-        err_indicators[level, idx] = cheap_err_indicator(Sopt4, global_gradient)
-        max_err_idx = np.argmax(err_indicators[level])
-        alpha_all_levels.append(np.unique(np.sort(np.hstack((alphas, test_alphas[max_err_idx])))))
+        if not given_alpha_levels:
+            # err_indicators[level, idx] = cheap_err_indicator(Sopt4, global_gradient)
+            err_indicators[level, idx] = np.mean(np.max(np.abs(compute_err_indicator_efficient(Sopt4, global_gradient)),
+                                                        axis=0)) / normalization_factor_mech[idx] * 100
+    max_err_idx = np.argmax(err_indicators[level])
+    alpha_all_levels.append(np.unique(np.sort(np.hstack((alphas, test_alphas[max_err_idx])))))
 
 idx = [idx for idx, microstructure in enumerate(microstructures) if file_name == microstructure['file_name']][0]
 np.savez_compressed(f'output/eg4_{idx}', n_hierarchical_levels=n_hierarchical_levels, test_temperatures=test_temperatures,
@@ -168,7 +173,7 @@ markers = ['s', 'd', '+', 'x', 'o']
 colors = ['C0', 'C1', 'C2', 'C3', 'C4']
 if not given_alpha_levels:
     err_indicators /= np.max(err_indicators)
-    ylabel = 'Relative error $e_6$ [\%]'
+    ylabel = 'Relative error $e_\mathsf{I}$ [\%]'
     fig_name = f'eg4_{idx}_hierarchical_sampling_err_indicator'
     plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
     for level in range(n_hierarchical_levels):
@@ -176,29 +181,26 @@ if not given_alpha_levels:
                  color=colors[level], linestyle=styles[level], markevery=8)
     plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [0, np.max(err_indicators)], loc='upper left')
 
-ylabel = 'Relative error $e_4$ [\%]'
-fig_name = f'eg4_{idx}_hierarchical_sampling_err_eff_S'
+ylabel = 'Relative error $e_{\overline{\mathsf{S}}}$ [\%]'
+fig_name = f'eg4_{idx}_hierarchical_sampling_err_eff_stress_localization'
 plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
 for level in range(n_hierarchical_levels):
     plt.plot(test_temperatures, err_eff_S[level], label=f'{level + 2} samples', marker=markers[level], color=colors[level],
              linestyle=styles[level], markevery=8)
 plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [0, np.max(err_eff_S)], loc='upper left')
 
-ylabel = 'Relative error $e_7$ [\%]'
-fig_name = f'eg4_{idx}_hierarchical_sampling_err_eff_C'
+ylabel = 'Relative error $e_{\overline{\mathbb{C}}}$ [\%]'
+fig_name = f'eg4_{idx}_hierarchical_sampling_err_eff_stiffness'
 plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
 for level in range(n_hierarchical_levels):
     plt.plot(test_temperatures, err_eff_C[level], label=f'{level + 2} samples', marker=markers[level], color=colors[level],
              linestyle=styles[level], markevery=8)
 plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [0, np.max(err_eff_C)], loc='upper left')
 
-ylabel = 'Relative error $e_8$ [\%]'
-fig_name = f'eg4_{idx}_hierarchical_sampling_err_eff_eps'
+ylabel = r'Relative error $e_{\overline{\boldmath{\varepsilon}}_{\uptheta}}$ [\%]'
+fig_name = f'eg4_{idx}_hierarchical_sampling_err_eff_thermal_strain'
 plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
 for level in range(n_hierarchical_levels):
     plt.plot(test_temperatures, err_eff_eps[level], label=f'{level + 2} samples', marker=markers[level], color=colors[level],
              linestyle=styles[level], markevery=8)
 plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [0, np.max(err_eff_eps)], loc='upper left')
-
-# move to the new repo
-# can provide a cleaned version of octahedron_rve with localization at the enriched points only
