@@ -14,7 +14,7 @@ print(file_name, '\t', data_path)
 
 n_loading_directions = 10
 n_tests = 10
-n_hierarchical_levels = 5
+n_hierarchical_levels = 2
 test_temperatures = np.linspace(temp1, temp2, num=n_tests)
 test_alphas = np.linspace(0, 1, num=n_tests)
 
@@ -22,13 +22,18 @@ mesh, ref = read_h5(file_name, data_path, test_temperatures)
 mat_id = mesh['mat_id']
 n_gauss = mesh['n_gauss']
 n_elements = mesh['n_elements']
+strain_dof = mesh['strain_dof']
+global_gradient = mesh['global_gradient']
+n_gp = mesh['n_integration_points']
+n_phases = len(np.unique(mat_id))
+n_modes = ref[0]['strain_localization'].shape[-1]
 
-strains = np.random.normal(size=(n_loading_directions, mesh['strain_dof']))
+strains = np.random.normal(size=(n_loading_directions, strain_dof))
 strains /= la.norm(strains, axis=1)[:, None]
 
 err_nodal_force = np.zeros((n_hierarchical_levels, n_tests, n_loading_directions))
-err_indicators = np.zeros((n_hierarchical_levels, n_tests))
-err_eff_stiffness = np.zeros((n_hierarchical_levels, n_tests))
+err_indicators, err_eff_S, err_eff_C, err_eff_eps = [np.zeros((n_hierarchical_levels, n_tests)) for _ in range(4)]
+
 alpha_levels = [np.linspace(0, 1, num=2)]
 
 for level in range(n_hierarchical_levels):
@@ -49,8 +54,8 @@ for level in range(n_hierarchical_levels):
         E1 = samples[id1]['strain_localization']
         E01 = np.ascontiguousarray(np.concatenate((E0, E1), axis=-1))
 
-        sampling_C = np.stack(
-            (samples[id0]['localization_mat_stiffness'], samples[id1]['localization_mat_stiffness'])).transpose([1, 0, 2, 3])
+        sampling_C = np.stack((samples[id0]['localization_mat_stiffness'], \
+                               samples[id1]['localization_mat_stiffness'])).transpose([1, 0, 2, 3])
         sampling_eps = np.stack((samples[id0]['localization_mat_thermal_strain'],
                                  samples[id1]['localization_mat_thermal_strain'])).transpose([1, 0, 2, 3])
 
@@ -60,28 +65,32 @@ for level in range(n_hierarchical_levels):
         ref_eps = ref[idx]['localization_mat_thermal_strain']
         normalization_factor_mech = ref[idx]['normalization_factor_mech']
 
-        Sref = construct_stress_localization(Eref, ref_C, ref_eps, mesh['mat_id'], mesh['n_gauss'], mesh['strain_dof'])
-        effCref = volume_average(Sref)
+        Sref = construct_stress_localization(Eref, ref_C, ref_eps, mat_id, n_gauss, strain_dof)
+        effSref = volume_average(Sref)
 
         # interpolated quantities using an implicit interpolation scheme with four DOF
         approx_C, approx_eps = opt4(sampling_C, sampling_eps, ref_C, ref_eps)
-        Eopt4 = interpolate_fluctuation_modes(E01, approx_C, approx_eps, mesh['mat_id'], mesh['n_gauss'], mesh['strain_dof'])
-        Sopt4 = construct_stress_localization(Eopt4, ref_C, ref_eps, mesh['mat_id'], mesh['n_gauss'], mesh['strain_dof'])
-        effCopt4 = volume_average(Sopt4)
+        Eopt4 = interpolate_fluctuation_modes(E01, approx_C, approx_eps, mat_id, n_gauss, strain_dof, n_modes, n_gp)
+        Sopt4 = construct_stress_localization(Eopt4, ref_C, ref_eps, mat_id, n_gauss, strain_dof)
+        effSopt = volume_average(Sopt4)
 
-        err_indicators[level,
-                       idx] = np.mean(np.max(np.abs(compute_err_indicator_efficient(Sopt4, mesh['global_gradient'])),
-                                             axis=0)) / normalization_factor_mech * 100
+        err_indicators[level, idx] = np.mean(np.max(np.abs(compute_err_indicator_efficient(Sopt4, global_gradient)),
+                                                    axis=0)) / normalization_factor_mech * 100
 
         for strain_idx, strain in enumerate(strains):
             zeta = np.hstack((strain, 1))
             stress_opt4 = np.einsum('ijk,k', Sopt4, zeta, optimize='optimal')
-            residual = compute_residual_efficient(stress_opt4, mesh['global_gradient'])
+            residual = compute_residual_efficient(stress_opt4, global_gradient)
 
             err_nodal_force[level, idx, strain_idx] = la.norm(residual, np.inf) / normalization_factor_mech * 100
 
-        err = lambda x, y: np.mean(la.norm(x - y) / la.norm(y)) * 100
-        err_eff_stiffness[level, idx] = err(effCopt4, effCref)
+        err = lambda x, y: la.norm(x - y) * 100 / (la.norm(y) if la.norm(y) > 0 else 1e-13)
+        err_eff_S[level, idx] = err(effSopt, effSref)
+
+        Capprox = effSopt[:6, :6]
+        Cref = effSref[:6, :6]
+        err_eff_C[level, idx] = err(Capprox, Cref)
+        err_eff_eps[level, idx] = err(la.solve(Capprox, effSopt[:, -1]), la.solve(Cref, effSref[:, -1]))
 
     # max_err_idx = np.argmax(np.mean(err_nodal_force[level], axis=1))
     max_err_idx = np.argmax(err_indicators[level])
@@ -90,7 +99,7 @@ for level in range(n_hierarchical_levels):
     print(f'{np.max(err_indicators[level]) = }')
 
 np.savez_compressed('output/eg3', n_hierarchical_levels=n_hierarchical_levels, test_temperatures=test_temperatures,
-                    err_nodal_force=err_nodal_force, err_indicators=err_indicators, err_eff_stiffness=err_eff_stiffness,
+                    err_nodal_force=err_nodal_force, err_indicators=err_indicators, err_eff_S=err_eff_S,
                     alpha_levels=np.asarray(alpha_levels, dtype=object))
 
 # %%
@@ -104,7 +113,7 @@ n_hierarchical_levels = loaded_qoi['n_hierarchical_levels']
 test_temperatures = loaded_qoi['test_temperatures']
 err_nodal_force = loaded_qoi['err_nodal_force']
 err_indicators = loaded_qoi['err_indicators']
-err_eff_stiffness = loaded_qoi['err_eff_stiffness']
+err_eff_S = loaded_qoi['err_eff_S']
 alpha_levels = loaded_qoi['alpha_levels']
 
 temp1 = test_temperatures[0]
@@ -127,7 +136,7 @@ markers = ['s', 'd', '+', 'x', 'o']
 colors = ['C0', 'C1', 'C2', 'C3', 'C4']
 
 fig_name = 'eg3_hierarchical_sampling_err_nodal_force'
-ylabel = 'Relative error $e_1$ [\%]'
+ylabel = 'Relative error $e_\mathsf{f}$ [\%]'
 plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
 for level in range(n_hierarchical_levels):
     plt.plot(test_temperatures, np.mean(err_nodal_force[level], axis=1), label=f'{level + 2} samples', marker=markers[level],
@@ -135,14 +144,13 @@ for level in range(n_hierarchical_levels):
 plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [0, np.max(np.mean(err_nodal_force, axis=-1))], loc='upper left')
 
 fig_name = 'eg3_hierarchical_sampling_err_indicator'
-ylabel = 'Relative error $e_6$ [\%]'
+ylabel = 'Relative error $e_\mathsf{I}$ [\%]'
 plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
 for level in range(n_hierarchical_levels):
     plt.plot(test_temperatures, err_indicators[level], label=f'{level + 2} samples', marker=markers[level], color=colors[level],
              markevery=8)
 plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [0, np.max(err_indicators)], loc='upper left')
 
-# styles = ['-', '-', '--', '-.', ':', ':', ':', ':']
 fig_name = 'eg3_hierarchical_sampling_err_nodal_vs_indicator'
 ylabel = 'Normalized error [-]'
 err_indicators /= np.max(err_indicators)
@@ -150,16 +158,32 @@ err_nodal_force_mat = np.mean(err_nodal_force, axis=-1)
 err_nodal_force_mat /= np.max(err_nodal_force_mat)
 plt.figure(figsize=(10 * cm, 6 * cm), dpi=600)
 for level in range(n_hierarchical_levels):
-    plt.plot(test_temperatures, err_nodal_force_mat[level], label=rf'$e_1$ {level + 2} samples', marker=markers[level],
+    plt.plot(test_temperatures, err_nodal_force_mat[level], label=rf'$e_\mathsf f$ {level + 2} samples', marker=markers[level],
              color=colors[level], linestyle='-', markevery=8)
-    plt.plot(test_temperatures, err_indicators[level], label=rf'$e_6$ {level + 2} samples', marker=markers[level],
+    plt.plot(test_temperatures, err_indicators[level], label=rf'$e_\mathsf I$ {level + 2} samples', marker=markers[level],
              color=colors[level], linestyle=':', markevery=8)
 plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [0, np.max(err_indicators)], loc='upper left')
 
-fig_name = 'eg3_hierarchical_sampling_err_eff_stiffness'
-ylabel = 'Relative error $e_4$ [\%]'
+fig_name = 'eg3_hierarchical_sampling_err_eff_stress_localization'
+ylabel = r'Relative error $e_{\overline{\mathsf{S}}}$ [\%]'
 plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
 for level in range(n_hierarchical_levels):
-    plt.plot(test_temperatures, err_eff_stiffness[level], label=f'{level + 2} samples', marker=markers[level],
-             color=colors[level], markevery=8)
-plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [0, np.max(err_eff_stiffness)], loc='upper left')
+    plt.plot(test_temperatures, err_eff_S[level], label=f'{level + 2} samples', marker=markers[level], color=colors[level],
+             markevery=8)
+plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [0, np.max(err_eff_S)], loc='upper left')
+
+ylabel = r'Relative error $e_{\overline{\mathbb{C}}}$ [\%]'
+fig_name = 'eg3_hierarchical_sampling_err_eff_stiffness'
+plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
+for level in range(n_hierarchical_levels):
+    plt.plot(test_temperatures, err_eff_C[level], label=f'{level + 2} samples', marker=markers[level], color=colors[level],
+             markevery=8)
+plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [0, np.max(err_eff_C)], loc='upper left')
+
+ylabel = r'Relative error $e_{\overline{\boldmath{\varepsilon}}_{\uptheta}}$ [\%]'
+fig_name = 'eg3_hierarchical_sampling_err_eff_thermal_strain'
+plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
+for level in range(n_hierarchical_levels):
+    plt.plot(test_temperatures, err_eff_eps[level], label=f'{level + 2} samples', marker=markers[level], color=colors[level],
+             markevery=8)
+plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [0, np.max(err_eff_eps)], loc='upper left')

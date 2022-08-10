@@ -22,23 +22,27 @@ microstructures = [{
     'temp2': 1300
 }, {
     'data_path': '/ms_1p/dset0_sim',
-    'file_name': "/home/alameddin/0deleteme/z_del_sync_dae/affine_thermoelastic_solver_python/input/octahedron_combo_32x32x32.h5",
+    'file_name': "input/octahedron_combo_32x32x32.h5",
     'temp1': 293,
     'temp2': 1300
 }, {
     'data_path': f'/image_data/dset_{idx}_sim',
-    'file_name':
-    f"/home/alameddin/0deleteme/z_del_sync_dae/affine_thermoelastic_solver_python/input/generated_rve10_vol{volume_fraction_family}.h5",
+    'file_name': f"input/generated_rve10_vol{volume_fraction_family}.h5",
     'temp1': 293,
     'temp2': 1300
 }, {
     'data_path': f'/image_data/dset_{idx}_sim',
-    'file_name': "/home/alameddin/0deleteme/z_del_sync_dae/affine_thermoelastic_solver_python/input/generated_rve10_vol40.h5",
+    'file_name': "input/generated_rve10_vol40.h5",
     'temp1': 293,
     'temp2': 1300
 }, {
     'data_path': f'/image_data/dset_{idx}_sim',
-    'file_name': '/home/alameddin/0deleteme/z_del_sync_dae/affine_thermoelastic_solver_python/input/generated_rve10_vol60.h5',
+    'file_name': 'input/generated_rve10_vol60.h5',
+    'temp1': 293,
+    'temp2': 1300
+}, {
+    'data_path': '/ms_1p/dset0_sim',
+    'file_name': "input/simple_3d_rve_combo.h5",
     'temp1': 293,
     'temp2': 1300
 }]
