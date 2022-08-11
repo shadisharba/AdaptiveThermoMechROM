@@ -73,10 +73,10 @@ def voxel_quadrature(discretisation, strain_dof=6, nodal_dof=3):
              dN_dzeta(*quadrature_coordinates[idx])]) * 2 * np.asarray(discretisation)[:, None]
         # l_ref=2 / (1/L_physical = 1/N) -> 2 * N
 
-        # [xx,yy,zz,sqrt(2)*xy,sqrt(2)*yz,sqrt(2)*xz]
-        position_x = [[1, 0, 0], [0, 0, 0], [0, 0, 0], [0, 1, 0], [0, 0, 0], [0, 0, 1]]
-        position_y = [[0, 0, 0], [0, 1, 0], [0, 0, 0], [1, 0, 0], [0, 0, 1], [0, 0, 0]]
-        position_z = [[0, 0, 0], [0, 0, 0], [0, 0, 1], [0, 0, 0], [0, 1, 0], [1, 0, 0]]
+        # [xx,yy,zz,sqrt(2)*xy,sqrt(2)*xz,sqrt(2)*yz]
+        position_x = [[1, 0, 0], [0, 0, 0], [0, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, 0]]
+        position_y = [[0, 0, 0], [0, 1, 0], [0, 0, 0], [1, 0, 0], [0, 0, 0], [0, 0, 1]]
+        position_z = [[0, 0, 0], [0, 0, 0], [0, 0, 1], [0, 0, 0], [1, 0, 0], [0, 1, 0]]
         gradient_operator = np.asarray(
             ((np.kron(shape_function_derivatives[0, :], position_x) + np.kron(shape_function_derivatives[1, :], position_y) +
               np.kron(shape_function_derivatives[2, :], position_z))) /
@@ -100,8 +100,6 @@ def read_h5(file_name, data_path, temperatures, get_mesh=True):
         mesh: dictionary that contains microstructural details such as volume fraction, voxel type, ...
         samples: list of simulation results at each temperature
     """
-    # current effective quantities follow LS-DYNA ordering. Hence, the same order is applied here
-    order0, order1 = [4, 5], [5, 4]
     axis_order = [0, 2, 1]  # n_gauss x strain_dof x 7 (7=6 mechanical + 1 thermal expansion)
 
     samples = []
@@ -123,16 +121,16 @@ def read_h5(file_name, data_path, temperatures, get_mesh=True):
             sample['poisson_ratio'] = file[f'{data_path}/material_{temperature:07.2f}'].attrs['poisson_ratio']  # constant
 
             sample['strain_localization'] = file[f'{data_path}/localization_strain_{temperature:07.2f}'][:].transpose(axis_order)
-            sample['strain_localization'][:, order0, :] = sample['strain_localization'][:, order1, :]
-            sample['strain_localization'][:, :, order0] = sample['strain_localization'][:, :, order1]
+            sample['strain_localization'] = sample['strain_localization'][:]
+            sample['strain_localization'] = sample['strain_localization'][:]
 
             sample['localization_mat_stiffness'] = file[f'{data_path}/localization_mat_stiffness_{temperature:07.2f}'][:]
-            sample['localization_mat_stiffness'][:, order0, :] = sample['localization_mat_stiffness'][:, order1, :]
-            sample['localization_mat_stiffness'][:, :, order0] = sample['localization_mat_stiffness'][:, :, order1]
+            sample['localization_mat_stiffness'] = sample['localization_mat_stiffness'][:]
+            sample['localization_mat_stiffness'] = sample['localization_mat_stiffness'][:]
 
             sample['localization_mat_thermal_strain'] = file[
                 f'{data_path}/localization_mat_thermal_strain_{temperature:07.2f}'][:][..., None]
-            sample['localization_mat_thermal_strain'][:, order0] = sample['localization_mat_thermal_strain'][:, order1]
+            sample['localization_mat_thermal_strain'] = sample['localization_mat_thermal_strain'][:]
 
             sample['normalization_factor_mech'] = file[f'{data_path}'].attrs['normalization_factor_mech'][0]
             sample['normalization_factor_therm'] = file[f'{data_path}'].attrs['normalization_factor_therm'][0]
@@ -142,13 +140,13 @@ def read_h5(file_name, data_path, temperatures, get_mesh=True):
             if mesh['vox_type'] == 'combo':
                 sample['combo_strain_loc0'] = \
                     file[f'{data_path}/localization_strain0_{temperature:07.2f}'][:].transpose(axis_order)
-                sample['combo_strain_loc0'][:, order0, :] = sample['combo_strain_loc0'][:, order1, :]
-                sample['combo_strain_loc0'][:, :, order0] = sample['combo_strain_loc0'][:, :, order1]
+                sample['combo_strain_loc0'] = sample['combo_strain_loc0'][:]
+                sample['combo_strain_loc0'] = sample['combo_strain_loc0'][:]
 
                 sample['combo_strain_loc1'] = \
                     file[f'{data_path}/localization_strain1_{temperature:07.2f}'][:].transpose(axis_order)
-                sample['combo_strain_loc1'][:, order0, :] = sample['combo_strain_loc1'][:, order1, :]
-                sample['combo_strain_loc1'][:, :, order0] = sample['combo_strain_loc1'][:, :, order1]
+                sample['combo_strain_loc1'] = sample['combo_strain_loc1'][:]
+                sample['combo_strain_loc1'] = sample['combo_strain_loc1'][:]
 
         if get_mesh:
             mesh['volume_fraction'] = file[f'{data_path}'].attrs['combo_volume_fraction']

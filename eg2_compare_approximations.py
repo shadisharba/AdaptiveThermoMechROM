@@ -130,14 +130,14 @@ import numpy.linalg as la
 import matplotlib.pyplot as plt
 from utilities import plot_and_save, cm, ecdf
 
-loaded_qoi = np.load('output/eg2.npz')
-err_f = loaded_qoi['err_f']
-err_eff_S = loaded_qoi['err_eff_S']
-err_eff_stress = loaded_qoi['err_eff_stress']
-err_E = loaded_qoi['err_E']
-err_S = loaded_qoi['err_S']
-n_loading_directions = loaded_qoi['n_loading_directions']
-n_approaches = loaded_qoi['n_approaches']
+# loaded_qoi = np.load('output/eg2.npz')
+# err_f = loaded_qoi['err_f']
+# err_eff_S = loaded_qoi['err_eff_S']
+# err_eff_stress = loaded_qoi['err_eff_stress']
+# err_E = loaded_qoi['err_E']
+# err_S = loaded_qoi['err_S']
+# n_loading_directions = loaded_qoi['n_loading_directions']
+# n_approaches = loaded_qoi['n_approaches']
 markevery = 8 * n_loading_directions
 
 xlabel = '$x$ [\%]'

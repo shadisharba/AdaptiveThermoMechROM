@@ -5,7 +5,7 @@ from material_parameters import *
 from optimize_alpha import naive, opt1, opt2, opt4
 from utilities import plot_and_save, cm
 
-temp1 = 293
+temp1 = 300
 temp2 = 1300
 n_tests = 25
 test_temperatures = np.linspace(temp1, temp2, num=n_tests)
@@ -66,7 +66,7 @@ for mat_id in range(2):
 
         # TODO clean
         approx_C, approx_eps = naive(alpha, sampling_C, sampling_eps, ref_C, ref_eps)
-        err = lambda x, y: la.norm(x - y) / (la.norm(y) if la.norm(y) > 0 else 1)
+        err = lambda x, y: la.norm(x - y) / la.norm(y)
         # err_indic[idx] += err(la.eigvalsh(approx_C[mat_id]), la.eigvalsh(ref_C[mat_id])) + err(opt4_trace_eps, ref_trace_eps)
         # err_indic[idx] += err(opt4_max_eig_value, ref_max_eig_value) + err(opt4_trace_eps, ref_trace_eps)
         # err_indic[idx] += err(opt4_max_eig_value, ref_max_eig_value)

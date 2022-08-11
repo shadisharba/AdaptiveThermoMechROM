@@ -84,7 +84,7 @@ for level in range(n_hierarchical_levels):
 
             err_nodal_force[level, idx, strain_idx] = la.norm(residual, np.inf) / normalization_factor_mech * 100
 
-        err = lambda x, y: la.norm(x - y) * 100 / (la.norm(y) if la.norm(y) > 0 else 1e-13)
+        err = lambda x, y: la.norm(x - y) * 100 / la.norm(y)
         err_eff_S[level, idx] = err(effSopt, effSref)
 
         Capprox = effSopt[:6, :6]
@@ -108,13 +108,13 @@ import numpy.linalg as la
 import matplotlib.pyplot as plt
 from utilities import plot_and_save, cm
 
-loaded_qoi = np.load('output/eg3.npz', allow_pickle=True)
-n_hierarchical_levels = loaded_qoi['n_hierarchical_levels']
-test_temperatures = loaded_qoi['test_temperatures']
-err_nodal_force = loaded_qoi['err_nodal_force']
-err_indicators = loaded_qoi['err_indicators']
-err_eff_S = loaded_qoi['err_eff_S']
-alpha_levels = loaded_qoi['alpha_levels']
+# loaded_qoi = np.load('output/eg3.npz', allow_pickle=True)
+# n_hierarchical_levels = loaded_qoi['n_hierarchical_levels']
+# test_temperatures = loaded_qoi['test_temperatures']
+# err_nodal_force = loaded_qoi['err_nodal_force']
+# err_indicators = loaded_qoi['err_indicators']
+# err_eff_S = loaded_qoi['err_eff_S']
+# alpha_levels = loaded_qoi['alpha_levels']
 
 temp1 = test_temperatures[0]
 temp2 = test_temperatures[-1]

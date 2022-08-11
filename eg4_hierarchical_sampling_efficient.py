@@ -45,7 +45,7 @@ for idx, alpha in enumerate(test_alphas):
 
 err_indicators, err_eff_S, err_eff_C, err_eff_eps = [np.zeros((n_hierarchical_levels, n_tests)) for _ in range(4)]
 interpolate_temp = lambda x1, x2, alpha: x1 + alpha * (x2 - x1)
-err = lambda x, y: la.norm(x - y) * 100 / np.maximum(la.norm(y), 1e-13)
+err = lambda x, y: la.norm(x - y) * 100 / la.norm(y)
 
 # alpha_all_levels is initialized with the first level of two samples
 alpha_all_levels = [np.linspace(0, 1, num=2)]
@@ -143,15 +143,14 @@ import numpy.linalg as la
 import matplotlib.pyplot as plt
 from utilities import plot_and_save, cm
 
-loaded_qoi = np.load(f'output/eg4_{idx}.npz', allow_pickle=True)
-
-n_hierarchical_levels = loaded_qoi['n_hierarchical_levels']
-test_temperatures = loaded_qoi['test_temperatures']
-err_indicators = loaded_qoi['err_indicators']
-err_eff_S = loaded_qoi['err_eff_S']
-err_eff_C = loaded_qoi['err_eff_C']
-err_eff_eps = loaded_qoi['err_eff_eps']
-alpha_all_levels = loaded_qoi['alpha_all_levels']
+# loaded_qoi = np.load(f'output/eg4_{idx}.npz', allow_pickle=True)
+# n_hierarchical_levels = loaded_qoi['n_hierarchical_levels']
+# test_temperatures = loaded_qoi['test_temperatures']
+# err_indicators = loaded_qoi['err_indicators']
+# err_eff_S = loaded_qoi['err_eff_S']
+# err_eff_C = loaded_qoi['err_eff_C']
+# err_eff_eps = loaded_qoi['err_eff_eps']
+# alpha_all_levels = loaded_qoi['alpha_all_levels']
 
 temp1 = test_temperatures[0]
 temp2 = test_temperatures[-1]
