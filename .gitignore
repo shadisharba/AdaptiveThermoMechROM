@@ -7,14 +7,16 @@ input/generated_rve10_vol40.out
 
 input/generated_rve10_vol60.out
 
-input/octahedron_combo_32x32x32.h5
-
-input/octahedron_combo_32x32x32.out
-
-input/octahedron_combo_32x32x32.xdmf
+input/octahedron_combo_32x32x32*
 
 .idea/
 
 __pycache__/
 
 output/
+
+input/generated_rve10_vol20.h5
+
+input/generated_rve10_vol40.h5
+
+input/generated_rve10_vol60.h5
