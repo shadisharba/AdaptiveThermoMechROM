@@ -1,3 +1,5 @@
+[![Actions Status](https://github.com/shadialameddin/del/workflows/Build/badge.svg)](https://github.com/shadialameddin/del/actions)
+
 # AdaptiveThermoMechROM
 
 An adaptive approach for strongly temperature-dependent thermoelastic homogenization. Using direct numerical simulations at few discrete temperatures, an energy optimal basis is constructed to be used at any intermediate temperature in real-time.
@@ -34,20 +36,33 @@ For details about the setup of the following examples, please refer to the cited
 - `eg4_hierarchical_sampling_efficient.py`
   Same as `eg3_hierarchical_sampling.py` but more efficient due to exploitation of affine structure of the proposed interpolation scheme.  
 
+<!-- https://mybinder.readthedocs.io/en/latest/using/config_files.html -->
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/shadialameddin/del/HEAD)
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/shadialameddin/del/blob/HEAD/index.ipynb)
+- `image_processing.py` [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/shadialameddin/pyminirom/blob/master/examples/0_intro_using_mnist.ipynb)
+
+
 ## Manuscript
 
 ["Reduced order homogenization of thermoelastic materials with strong temperature-dependence and comparison to machine-learned models"](https://??????)
 
 by Shadi Sharba, Julius Herb and Felix Fritzen. Published in *Journal of Elasticity*, DOI ??????. Pre-print available at https://arxiv.org/?????? .
 
+Contact:
+* Shadi Sharba: [email](mailto:shadi.sharba@mib.uni-stuttgart.de)
+* Felix Fritzen: [email](mailto:fritzen@mib.uni-stuttgart.de)
+
+[Research group website](http://www.mib.uni-stuttgart.de/dae)
 
 ## Possible extensions
 - Hierarchical sampling could be done first on coarse voxel discretization with normal voexls and with coarse interpolation tests. Then after obtaining the sampling points for each level, fine discretization may be used.
 
 
 ## Acknowledgments
-- The IGF-Project no.: 21.079 N / DVS-No.: 06.3341 of the “Forschungsvereinigung Schweißen und verwandte Verfahren e.V.” of the German Welding Society (DVS), Aachener Str. 172, 40223 Düsseldorf, Germany, was funded by the Federal Ministry for Economic Affairs and Energy (BMWi) via the German Federation of Industrial Research Associations (AiF) in accordance with the policy to support the Industrial Collective Research (IGF) on the orders of the German Bundestag.
+- The IGF-Project with the IGF-No.: 21079 N / DVS-No.: 06.3341 of the “Forschungsvereinigung Schweißen und verwandte Verfahren e. V.” of the German Welding Society (DVS), Aachener Str. 172, 40223 Düsseldorf was funded by the Federal Ministry for Economic Affairs and Climate Action (BMWK) via the German Federation of Industrial Research Associations (AiF) in accordance with the policy to support the Industrial Collective Research (IGF) on the basis of a decision by the German Bundestag. Furthermore, the authors gratefully acknowledge the collaboration with the members of the project affiliated committee regarding the support of knowledge, material and equipment over the course of the research.
 
-- Funded by the German Research Foundation (DFG)
-406068690 / DFG FR2702/8
-390740016 / EXC-2075.
+- Contributions by Felix Fritzen are partially funded by Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) under Germany’s Excellence Strategy - EXC 2075 – 390740016.
+Felix Fritzen is funded by Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) within the Heisenberg program DFG-FR2702/8 - 406068690. 
+
+- The authors acknowledge the support by the Stuttgart Center for Simulation Science (SimTech). 

@@ -1,3 +1,6 @@
+"""
+Approximate material properties using various affine approaches
+"""
 import numpy as np
 import numpy.linalg as la
 import matplotlib.pyplot as plt
@@ -7,18 +10,19 @@ from utilities import plot_and_save, cm
 
 temp1 = 300
 temp2 = 1300
-n_tests = 25
+n_tests = 100
 test_temperatures = np.linspace(temp1, temp2, num=n_tests)
 test_alphas = np.linspace(0, 1, num=n_tests)
 n_approaches = 5
 
-# TODO new error indicator
-err_indic = np.zeros((n_tests))
+abs_err = lambda x, y: la.norm(x - y) * 100
+rel_err = lambda x, y: la.norm(x - y) * 100 / la.norm(y)
+err_measure = rel_err
 
 for mat_id in range(2):
     sampling_C = [[stiffness_cu(temp1), stiffness_cu(temp2)], [stiffness_wsc(temp1), stiffness_wsc(temp2)]]
     sampling_eps = [[thermal_strain_cu(temp1), thermal_strain_cu(temp2)], [thermal_strain_wsc(temp1), thermal_strain_wsc(temp2)]]
-    max_eig_value, trace_eps = [np.zeros((n_approaches, n_tests)) for _ in range(2)]
+    max_eig_value, trace_eps, err_max_eig, err_trace_eps = [np.zeros((n_approaches, n_tests)) for _ in range(4)]
 
     for idx, alpha in enumerate(test_alphas):
         print(f'{alpha = :.2f}')
@@ -64,44 +68,53 @@ for mat_id in range(2):
         trace_eps[3, idx] = opt2_trace_eps
         trace_eps[4, idx] = opt4_trace_eps
 
-        # TODO clean
-        approx_C, approx_eps = naive(alpha, sampling_C, sampling_eps, ref_C, ref_eps)
-        err = lambda x, y: la.norm(x - y) / la.norm(y)
-        # err_indic[idx] += err(la.eigvalsh(approx_C[mat_id]), la.eigvalsh(ref_C[mat_id])) + err(opt4_trace_eps, ref_trace_eps)
-        # err_indic[idx] += err(opt4_max_eig_value, ref_max_eig_value) + err(opt4_trace_eps, ref_trace_eps)
-        # err_indic[idx] += err(opt4_max_eig_value, ref_max_eig_value)
-        err_indic[idx] += err(np.sort(la.eigvalsh(approx_C[mat_id])), np.sort(la.eigvalsh(ref_C[mat_id])))
-        # err_indic[idx] += err(naive_trace_eps, ref_trace_eps)
-        # err_indic[idx] += 0.7 * err(np.sort(la.eigvalsh(approx_C[mat_id])), np.sort(la.eigvalsh(ref_C[mat_id]))) + 0.3 * err(
-        #     naive_trace_eps, ref_trace_eps)
+        err_max_eig[0, idx] = err_measure(ref_max_eig_value, ref_max_eig_value)
+        err_max_eig[1, idx] = err_measure(naive_max_eig_value, ref_max_eig_value)
+        err_max_eig[2, idx] = err_measure(opt1_max_eig_value, ref_max_eig_value)
+        err_max_eig[3, idx] = err_measure(opt2_max_eig_value, ref_max_eig_value)
+        err_max_eig[4, idx] = err_measure(opt4_max_eig_value, ref_max_eig_value)
+
+        err_trace_eps[0, idx] = err_measure(ref_trace_eps, ref_trace_eps)
+        err_trace_eps[1, idx] = err_measure(naive_trace_eps, ref_trace_eps)
+        err_trace_eps[2, idx] = err_measure(opt1_trace_eps, ref_trace_eps)
+        err_trace_eps[3, idx] = err_measure(opt2_trace_eps, ref_trace_eps)
+        err_trace_eps[4, idx] = err_measure(opt4_trace_eps, ref_trace_eps)
 
     max_eig_value /= np.max(max_eig_value)
     trace_eps /= np.max(trace_eps)
 
-    fig_name = f'eg1_max_eig{mat_id}'
-    xlabel = 'Temperature [K]'
-    ylabel = 'Normalized max($\lambda(\mathbb{C})$) [-]'
     labels = ['R', 'O$_0$', 'O$_1$', 'O$_2$', 'O$_4$']
     markers = ['s', 'd', '+', 'x', 'o']
     colors = ['C0', 'C1', 'C2', 'C3', 'C4']
 
+    fig_name = f'eg1_max_eig{mat_id}'
+    xlabel = 'Temperature [K]'
+    ylabel = 'Normalized max($\lambda(\mathbb{C})$) [-]'
     plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
     for idx in range(n_approaches):
-        plt.plot(test_temperatures, max_eig_value[idx], label=labels[idx], marker=markers[idx], color=colors[idx])
-    plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [None if mat_id else 0, 1])
+        plt.plot(test_temperatures, max_eig_value[idx], label=labels[idx], marker=markers[idx], color=colors[idx], markevery=6)
+    plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [None, None])
 
     fig_name = f'eg1_tr_thermal_strain{mat_id}'
     xlabel = 'Temperature [K]'
     ylabel = r'Normalized tr($\boldsymbol{\varepsilon}_\uptheta$) [-]'
-
     plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
     for idx in range(n_approaches):
-        plt.plot(test_temperatures, trace_eps[idx], label=labels[idx], marker=markers[idx], color=colors[idx])
-    plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [0, 1])
+        plt.plot(test_temperatures, trace_eps[idx], label=labels[idx], marker=markers[idx], color=colors[idx], markevery=6)
+    plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [None, None])
 
-fig_name = f'eg1_cumulative_error_indicator'
-xlabel = 'Temperature [K]'
-ylabel = r'Cumulative error indicator [-]'
-plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
-plt.plot(test_temperatures, err_indic, label=labels[0], marker=markers[0], color=colors[0])
-plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [0, None])
+    fig_name = f'eg1_err_max_eig{mat_id}'
+    xlabel = 'Temperature [K]'
+    ylabel = 'Relative error max($\lambda(\mathbb{C})$) [\%]'
+    plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
+    for idx in range(n_approaches):
+        plt.plot(test_temperatures, err_max_eig[idx], label=labels[idx], marker=markers[idx], color=colors[idx], markevery=6)
+    plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [None, None])
+
+    fig_name = f'eg1_err_tr_thermal_strain{mat_id}'
+    xlabel = 'Temperature [K]'
+    ylabel = r'Relative error tr($\boldsymbol{\varepsilon}_\uptheta$) [\%]'
+    plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
+    for idx in range(n_approaches):
+        plt.plot(test_temperatures, err_trace_eps[idx], label=labels[idx], marker=markers[idx], color=colors[idx], markevery=6)
+    plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [None, None])

@@ -1,27 +1,30 @@
+"""
+Test hierarchical sampling on RVE with octahedral inclusion
+"""
 import numpy as np
 import numpy.linalg as la
 import matplotlib.pyplot as plt
 from operator import itemgetter
 from microstructures import *
-from optimize_alpha import opt1, opt2, opt4, naive
+from optimize_alpha import opt4
 from interpolate_fluctuation_modes import interpolate_fluctuation_modes
 from utilities import read_h5, construct_stress_localization, volume_average, plot_and_save, cm, compute_err_indicator, \
     compute_residual, compute_residual_efficient, compute_err_indicator_efficient
 
 np.random.seed(0)
-file_name, data_path, temp1, temp2 = itemgetter('file_name', 'data_path', 'temp1', 'temp2')(microstructures[3])
+file_name, data_path, temp1, temp2, n_tests, sampling_alphas = itemgetter('file_name', 'data_path', 'temp1', 'temp2', 'n_tests',
+                                                                          'sampling_alphas')(microstructures[6])
 print(file_name, '\t', data_path)
 
 n_loading_directions = 10
-n_tests = 10
-n_hierarchical_levels = 2
+n_tests = 100
+n_hierarchical_levels = 5
 test_temperatures = np.linspace(temp1, temp2, num=n_tests)
 test_alphas = np.linspace(0, 1, num=n_tests)
 
 mesh, ref = read_h5(file_name, data_path, test_temperatures)
 mat_id = mesh['mat_id']
 n_gauss = mesh['n_gauss']
-n_elements = mesh['n_elements']
 strain_dof = mesh['strain_dof']
 global_gradient = mesh['global_gradient']
 n_gp = mesh['n_integration_points']
@@ -54,23 +57,19 @@ for level in range(n_hierarchical_levels):
         E1 = samples[id1]['strain_localization']
         E01 = np.ascontiguousarray(np.concatenate((E0, E1), axis=-1))
 
-        sampling_C = np.stack((samples[id0]['localization_mat_stiffness'], \
-                               samples[id1]['localization_mat_stiffness'])).transpose([1, 0, 2, 3])
-        sampling_eps = np.stack((samples[id0]['localization_mat_thermal_strain'],
-                                 samples[id1]['localization_mat_thermal_strain'])).transpose([1, 0, 2, 3])
+        sampling_C = np.stack((samples[id0]['mat_stiffness'], \
+                               samples[id1]['mat_stiffness'])).transpose([1, 0, 2, 3])
+        sampling_eps = np.stack((samples[id0]['mat_thermal_strain'], samples[id1]['mat_thermal_strain'])).transpose([1, 0, 2, 3])
 
         # reference values
-        Eref = ref[idx]['strain_localization']
-        ref_C = ref[idx]['localization_mat_stiffness']
-        ref_eps = ref[idx]['localization_mat_thermal_strain']
+        ref_C = ref[idx]['mat_stiffness']
+        ref_eps = ref[idx]['mat_thermal_strain']
         normalization_factor_mech = ref[idx]['normalization_factor_mech']
-
-        Sref = construct_stress_localization(Eref, ref_C, ref_eps, mat_id, n_gauss, strain_dof)
-        effSref = volume_average(Sref)
+        effSref = np.vstack((ref[idx]['eff_stiffness'], ref[idx]['eff_thermal_strain'])).T
 
         # interpolated quantities using an implicit interpolation scheme with four DOF
         approx_C, approx_eps = opt4(sampling_C, sampling_eps, ref_C, ref_eps)
-        Eopt4 = interpolate_fluctuation_modes(E01, approx_C, approx_eps, mat_id, n_gauss, strain_dof, n_modes, n_gp)
+        Eopt4, _ = interpolate_fluctuation_modes(E01, approx_C, approx_eps, mat_id, n_gauss, strain_dof, n_modes, n_gp)
         Sopt4 = construct_stress_localization(Eopt4, ref_C, ref_eps, mat_id, n_gauss, strain_dof)
         effSopt = volume_average(Sopt4)
 
@@ -89,7 +88,9 @@ for level in range(n_hierarchical_levels):
 
         Capprox = effSopt[:6, :6]
         Cref = effSref[:6, :6]
-        err_eff_C[level, idx] = err(Capprox, Cref)
+        invL = la.inv(la.cholesky(Cref))
+        err_eff_C[level, idx] = la.norm(invL @ Capprox @ invL.T - np.eye(6)) / la.norm(np.eye(6)) * 100
+
         err_eff_eps[level, idx] = err(la.solve(Capprox, effSopt[:, -1]), la.solve(Cref, effSref[:, -1]))
 
     # max_err_idx = np.argmax(np.mean(err_nodal_force[level], axis=1))

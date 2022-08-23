@@ -1,28 +1,17 @@
-
-input/paraview_state_*
-
-input/generated_rve10_vol20.out
-
-input/generated_rve10_vol40.out
-
-input/generated_rve10_vol60.out
-
-input/octahedron_combo_32x32x32*
-
 .idea/
-
 __pycache__/
+*.ipynb_checkpoints/
+
+input/*.h5
+input/paraview_state_*
+input/remove_some_data.py
+input/h5_data_structure.aux
+input/h5_data_structure.log
+input/h5_data_structure.synctex.gz
 
 output/
 
-input/generated_rve10_vol20.h5
 
-input/generated_rve10_vol40.h5
 
-input/generated_rve10_vol60.h5
 
-input/h5_data_structure.aux
 
-input/h5_data_structure.log
-
-input/h5_data_structure.synctex.gz

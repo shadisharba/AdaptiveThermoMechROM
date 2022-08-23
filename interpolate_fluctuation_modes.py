@@ -8,6 +8,7 @@ def interpolate_fluctuation_modes(E01, mat_stiffness, mat_thermal_strain, mat_id
     E_approx = np.zeros((n_gp, strain_dof, n_modes))
 
     I = np.eye(strain_dof)
+    S_average = np.zeros((n_modes, n_modes))
     for gp_id in prange(n_gp):
 
         phase_id = mat_id[gp_id // n_gauss]
@@ -16,22 +17,21 @@ def interpolate_fluctuation_modes(E01, mat_stiffness, mat_thermal_strain, mat_id
 
         E01t_C = E01[gp_id].T @ mat_stiffness[phase_id]
 
-        K += E01t_C @ E01[gp_id]
-        F += E01t_C @ P
+        K += E01t_C @ E01[gp_id] / n_gp
+        F += E01t_C @ P / n_gp
+
+        S_average += P.T @ mat_stiffness[phase_id] @ P / n_gp
 
     phi = np.linalg.lstsq(K, F)[0]
+
+    S_average -= F.T @ phi
 
     for gp_id in prange(n_gp):
         E_approx[gp_id] = E01[gp_id] @ phi
 
-    return E_approx
+    return E_approx, S_average
 
-# similar assembly procedure that incorporates interpolation parameters
-# E01t_C0 = E01[gp_id].T @ (C0[phase_id] + Cd[phase_id] * alpha_C[phase_id])
-# K += E01t_C0 @ E01[gp_id]
-# F += E01t_C0 @ np.hstack((-I, eps0[phase_id] + epsd[phase_id] * alpha_eps[phase_id]))
-
-def update_affine_decomposition(E01, sampling_C, sampling_eps, n_modes, n_phases, n_gp, strain_dof, mat_id, n_gauss, quick=False):
+def update_affine_decomposition(E01, sampling_C, sampling_eps, n_modes, n_phases, n_gp, strain_dof, mat_id, n_gauss):
     I = np.eye(strain_dof)
 
     K0 = np.zeros((2 * n_modes, 2 * n_modes))
@@ -40,6 +40,7 @@ def update_affine_decomposition(E01, sampling_C, sampling_eps, n_modes, n_phases
     F1 = np.zeros((n_phases, 2 * n_modes, n_modes))
     F2, F3 = [np.zeros((n_phases, 2 * n_modes, 1)) for _ in range(2)]
 
+    quick = True
     dim0 = 1 if quick else n_gp
     S001 = np.zeros((dim0, strain_dof, 2 * n_modes))
     S002 = np.zeros((dim0, n_phases, strain_dof, 2 * n_modes))
@@ -88,11 +89,23 @@ def update_affine_decomposition(E01, sampling_C, sampling_eps, n_modes, n_phases
         S103[idx0, phase_id] += pre_f2
         S104[idx0, phase_id] += pre_f3
 
-    return K0, K1, F0, F1, F2, F3, S001, S101, S103, S002, S102, S104
+    if quick:
+        return K0, K1, F0, F1, F2, F3, np.squeeze(S001 / n_gp), np.squeeze(S101 / n_gp), np.squeeze(S103 / n_gp), np.squeeze(
+            S002 / n_gp), np.squeeze(S102 / n_gp), np.squeeze(S104 / n_gp)
+    else:
+        return K0, K1, F0, F1, F2, F3, S001, S101, S103, S002, S102, S104
 
 # @jit(nopython=True, cache=True, parallel=True, fastmath=True, nogil=True)
-def update_stress_localization(E01, K0, K1, F0, F1, F2, F3, S001, S101, S103, S002, S102, S104, alpha_C, alpha_eps, alpha_C_eps,
-                               strain_dof, n_modes, n_gp):
+def get_phi(K0, K1, F0, F1, F2, F3, alpha_C, alpha_eps, alpha_C_eps):
+    K = K0 + np.sum(K1 * alpha_C, 0)  # sum over the phases
+    F = F0 + np.sum(F1 * alpha_C, 0)
+    F[:, -1:] += np.sum(F2 * alpha_eps + F3 * alpha_C_eps, 0)
+
+    return np.linalg.lstsq(K, F, rcond=None)[0]
+
+# @jit(nopython=True, cache=True, parallel=True, fastmath=True, nogil=True)
+def effective_S(K0, K1, F0, F1, F2, F3, S001, S101, S103, S002, S102, S104, alpha_C, alpha_eps, alpha_C_eps, alpha_eps2D,
+                alpha_C_eps2D):
     K = K0 + np.sum(K1 * alpha_C, 0)  # sum over the phases
     F = F0 + np.sum(F1 * alpha_C, 0)
     F[:, -1:] += np.sum(F2 * alpha_eps + F3 * alpha_C_eps, 0)
@@ -100,14 +113,14 @@ def update_stress_localization(E01, K0, K1, F0, F1, F2, F3, S001, S101, S103, S0
     phi = np.linalg.lstsq(K, F, rcond=None)[0]
     # phi = np.linalg.lstsq(K, F)[0]
 
+    S00 = S001 + np.sum(S002 * alpha_C, 0)  # sum over the phases
+    S11 = S101 + np.sum(S102 * alpha_C, 0)
+    S11[:, -1] += np.sum(S103 * alpha_eps2D + S104 * alpha_C_eps2D, 0)
+    return S00 @ phi - S11, phi
+
+@jit(nopython=True, cache=True, parallel=True, fastmath=True, nogil=True)
+def transform_strain_localization(E01, phi, n_gp, strain_dof, n_modes):
     E_approx = np.zeros((n_gp, strain_dof, n_modes))
     for gp_id in prange(n_gp):
         E_approx[gp_id] = E01[gp_id] @ phi
-
-    S_approx = 0
-    # S00 = S001 + np.sum(S002 * alpha_C, 1)  # sum over the phases
-    # S11 = S101 + np.sum(S102 * alpha_C, 1)
-    # S11[..., -1:] += np.sum(S103 * alpha_eps + S104 * alpha_C_eps, 1)
-    # S_approx = S00 @ phi - S11
-
-    return E_approx, S_approx
+    return E_approx

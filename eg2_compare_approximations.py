@@ -1,3 +1,6 @@
+"""
+Test a straightforward implementation of all approaches
+"""
 import numpy as np
 import numpy.linalg as la
 import matplotlib.pyplot as plt
@@ -9,7 +12,8 @@ from utilities import read_h5, construct_stress_localization, volume_average, pl
     compute_residual_efficient
 
 np.random.seed(0)
-file_name, data_path, temp1, temp2 = itemgetter('file_name', 'data_path', 'temp1', 'temp2')(microstructures[0])
+file_name, data_path, temp1, temp2, n_tests, sampling_alphas = itemgetter('file_name', 'data_path', 'temp1', 'temp2', 'n_tests',
+                                                                          'sampling_alphas')(microstructures[0])
 print(file_name, '\t', data_path)
 
 n_loading_directions = 10
@@ -22,7 +26,6 @@ test_alphas = np.linspace(0, 1, num=n_tests)
 mesh, ref = read_h5(file_name, data_path, test_temperatures)
 mat_id = mesh['mat_id']
 n_gauss = mesh['n_gauss']
-n_elements = mesh['n_elements']
 strain_dof = mesh['strain_dof']
 global_gradient = mesh['global_gradient']
 n_gp = mesh['n_integration_points']
@@ -51,15 +54,14 @@ for idx, alpha in enumerate(test_alphas):
     E1 = samples[id1]['strain_localization']
     E01 = np.ascontiguousarray(np.concatenate((E0, E1), axis=-1))
 
-    sampling_C = np.stack((samples[id0]['localization_mat_stiffness'], \
-                           samples[id1]['localization_mat_stiffness'])).transpose([1, 0, 2, 3])
-    sampling_eps = np.stack((samples[id0]['localization_mat_thermal_strain'],
-                             samples[id1]['localization_mat_thermal_strain'])).transpose([1, 0, 2, 3])
+    sampling_C = np.stack((samples[id0]['mat_stiffness'], \
+                           samples[id1]['mat_stiffness'])).transpose([1, 0, 2, 3])
+    sampling_eps = np.stack((samples[id0]['mat_thermal_strain'], samples[id1]['mat_thermal_strain'])).transpose([1, 0, 2, 3])
 
     # reference values
     Eref = ref[idx]['strain_localization']
-    ref_C = ref[idx]['localization_mat_stiffness']
-    ref_eps = ref[idx]['localization_mat_thermal_strain']
+    ref_C = ref[idx]['mat_stiffness']
+    ref_eps = ref[idx]['mat_thermal_strain']
     normalization_factor_mech = ref[idx]['normalization_factor_mech']
 
     Sref = construct_stress_localization(Eref, ref_C, ref_eps, mat_id, n_gauss, strain_dof)
@@ -72,25 +74,25 @@ for idx, alpha in enumerate(test_alphas):
     effSnaive = volume_average(Snaive)
 
     # interpolated quantities using an explicit interpolation scheme with one DOF
-    Eopt0 = interpolate_fluctuation_modes(E01, approx_C, approx_eps, mat_id, n_gauss, strain_dof, n_modes, n_gp)
+    Eopt0, _ = interpolate_fluctuation_modes(E01, approx_C, approx_eps, mat_id, n_gauss, strain_dof, n_modes, n_gp)
     Sopt0 = construct_stress_localization(Eopt0, ref_C, ref_eps, mat_id, n_gauss, strain_dof)
     effSopt0 = volume_average(Sopt0)
 
     # interpolated quantities using an implicit interpolation scheme with one DOF
     approx_C, approx_eps = opt1(sampling_C, sampling_eps, ref_C, ref_eps)
-    Eopt1 = interpolate_fluctuation_modes(E01, approx_C, approx_eps, mat_id, n_gauss, strain_dof, n_modes, n_gp)
+    Eopt1, _ = interpolate_fluctuation_modes(E01, approx_C, approx_eps, mat_id, n_gauss, strain_dof, n_modes, n_gp)
     Sopt1 = construct_stress_localization(Eopt1, ref_C, ref_eps, mat_id, n_gauss, strain_dof)
     effSopt1 = volume_average(Sopt1)
 
     # interpolated quantities using an implicit interpolation scheme with two DOF
     approx_C, approx_eps = opt2(sampling_C, sampling_eps, ref_C, ref_eps)
-    Eopt2 = interpolate_fluctuation_modes(E01, approx_C, approx_eps, mat_id, n_gauss, strain_dof, n_modes, n_gp)
+    Eopt2, _ = interpolate_fluctuation_modes(E01, approx_C, approx_eps, mat_id, n_gauss, strain_dof, n_modes, n_gp)
     Sopt2 = construct_stress_localization(Eopt2, ref_C, ref_eps, mat_id, n_gauss, strain_dof)
     effSopt2 = volume_average(Sopt2)
 
     # interpolated quantities using an implicit interpolation scheme with four DOF
     approx_C, approx_eps = opt4(sampling_C, sampling_eps, ref_C, ref_eps)
-    Eopt4 = interpolate_fluctuation_modes(E01, approx_C, approx_eps, mat_id, n_gauss, strain_dof, n_modes, n_gp)
+    Eopt4, _ = interpolate_fluctuation_modes(E01, approx_C, approx_eps, mat_id, n_gauss, strain_dof, n_modes, n_gp)
     Sopt4 = construct_stress_localization(Eopt4, ref_C, ref_eps, mat_id, n_gauss, strain_dof)
     effSopt4 = volume_average(Sopt4)
 
