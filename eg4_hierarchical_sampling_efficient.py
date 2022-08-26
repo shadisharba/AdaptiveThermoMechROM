@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 from operator import itemgetter
 from matplotlib.ticker import FormatStrFormatter
 
-from interpolate_fluctuation_modes import update_affine_decomposition, effective_S, transform_strain_localization, \
-    interpolate_fluctuation_modes, get_phi
+from interpolate_fluctuation_modes import update_affine_decomposition, effective_S, effective_stress_localization, \
+    interpolate_fluctuation_modes, get_phi, transform_strain_localization
 from microstructures import *
 from optimize_alpha import opt4_alphas, opt4
 from utilities import read_h5, construct_stress_localization, volume_average, plot_and_save, cm, compute_err_indicator_efficient
@@ -26,7 +26,7 @@ for ms_id in [7, 8, 9]:
     # given_alpha_levels = False
     # n_tests = 10
 
-    n_hierarchical_levels = 5
+    n_hierarchical_levels = len(sampling_alphas) if sampling_alphas is not None else 5
     test_temperatures = np.linspace(temp1, temp2, num=n_tests)
     test_alphas = np.linspace(0, 1, num=n_tests)
 
@@ -111,20 +111,26 @@ for ms_id in [7, 8, 9]:
 
             phi = get_phi(K0, K1, F0, F1, F2, F3, alpha_C, alpha_eps, alpha_C_eps)
 
-            # TODO double check
-            # effSopt0, phi = effective_S(K0, K1, F0, F1, F2, F3, S001, S101, S103, S002, S102, S104, alpha_C, alpha_eps,
-            #                             alpha_C_eps, np.squeeze(alpha_eps, axis=-1), np.squeeze(alpha_C_eps, axis=-1))
-            #  approx_C, approx_eps = opt4(sampling_C, sampling_eps, ref_Cs[idx], ref_epss[idx])
-            # _, effSopt1 = interpolate_fluctuation_modes(E01s[current_sampling_id], ref_Cs[idx], ref_epss[idx], mat_id, n_gauss,
-            #                                             strain_dof, n_modes, n_gp)
-            # effSopt = effSopt1[:6, :]
-            # print(la.norm(effSopt2[:, -1] - effSopt[:, -1]))
+            speed = 1
+            if speed == 0:
+                C, eps = ref_Cs[idx], ref_epss[idx]
+                # C, eps = opt4(sampling_C, sampling_eps, ref_Cs[idx], ref_epss[idx])
+                _, effSopt = interpolate_fluctuation_modes(E01s[current_sampling_id], C, eps, mat_id, n_gauss, strain_dof,
+                                                           n_modes, n_gp)
+            elif speed == 1:
+                effSopt = effective_stress_localization(E01s[current_sampling_id], phi, ref_Cs[idx], ref_epss[idx], mat_id,
+                                                        n_gauss, n_gp, strain_dof, n_modes)
+            elif speed == 2:
+                # matches the result from interpolate_fluctuation_modes with a difference
+                # that depends on using ref_Cs[idx],ref_epss[idx] instead of alphas
+                effSopt, phi = effective_S(phi, S001, S101, S103, S002, S102, S104, alpha_C, np.squeeze(alpha_eps, axis=-1),
+                                           np.squeeze(alpha_C_eps, axis=-1))
+            else:
+                raise NotImplementedError()
 
-            Eopt4 = transform_strain_localization(E01s[current_sampling_id], phi, n_gp, strain_dof, n_modes)
-            Sopt4 = construct_stress_localization(Eopt4, ref_Cs[idx], ref_epss[idx], mat_id, n_gauss, strain_dof)
-            effSopt = volume_average(Sopt4)
             if not given_alpha_levels:
-                # err_indicators[level, idx] = cheap_err_indicator(Sopt4, global_gradient)
+                Eopt4 = transform_strain_localization(E01s[current_sampling_id], phi, n_gp, strain_dof, n_modes)
+                Sopt4 = construct_stress_localization(Eopt4, ref_Cs[idx], ref_epss[idx], mat_id, n_gauss, strain_dof)
                 err_indicators[level,
                                idx] = np.mean(np.max(np.abs(compute_err_indicator_efficient(Sopt4, global_gradient)),
                                                      axis=0)) / normalization_factor_mech[idx] * 100
@@ -227,3 +233,8 @@ for ms_id in [7, 8, 9]:
                  linestyle=styles[level], markevery=8)
     plt.gca().yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [0, np.max(err_eff_eps)], loc='upper left')
+
+    print(np.max(err_indicators))
+    print(np.max(err_eff_S))
+    print(np.max(err_eff_C))
+    print(np.max(err_eff_eps))

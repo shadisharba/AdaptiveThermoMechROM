@@ -16,8 +16,7 @@ file_name, data_path, temp1, temp2, n_tests, sampling_alphas = itemgetter('file_
                                                                           'sampling_alphas')(microstructures[6])
 print(file_name, '\t', data_path)
 
-n_loading_directions = 10
-n_tests = 100
+n_loading_directions = 1
 n_hierarchical_levels = 5
 test_temperatures = np.linspace(temp1, temp2, num=n_tests)
 test_alphas = np.linspace(0, 1, num=n_tests)
@@ -49,7 +48,7 @@ for level in range(n_hierarchical_levels):
         print(f'{alpha = :.2f}')
         temperature = test_temperatures[idx]
 
-        upper_bound = np.where(alphas >= alpha)[0][0]
+        upper_bound = np.searchsorted(alphas, alpha)
         id1 = upper_bound if upper_bound > 0 else 1
         id0 = id1 - 1
 
@@ -57,15 +56,14 @@ for level in range(n_hierarchical_levels):
         E1 = samples[id1]['strain_localization']
         E01 = np.ascontiguousarray(np.concatenate((E0, E1), axis=-1))
 
-        sampling_C = np.stack((samples[id0]['mat_stiffness'], \
-                               samples[id1]['mat_stiffness'])).transpose([1, 0, 2, 3])
+        sampling_C = np.stack((samples[id0]['mat_stiffness'], samples[id1]['mat_stiffness'])).transpose([1, 0, 2, 3])
         sampling_eps = np.stack((samples[id0]['mat_thermal_strain'], samples[id1]['mat_thermal_strain'])).transpose([1, 0, 2, 3])
 
         # reference values
         ref_C = ref[idx]['mat_stiffness']
         ref_eps = ref[idx]['mat_thermal_strain']
         normalization_factor_mech = ref[idx]['normalization_factor_mech']
-        effSref = np.vstack((ref[idx]['eff_stiffness'], ref[idx]['eff_thermal_strain'])).T
+        effSref = np.vstack((ref[idx]['eff_stiffness'], -ref[idx]['eff_stiffness'] @ ref[idx]['eff_thermal_strain'])).T
 
         # interpolated quantities using an implicit interpolation scheme with four DOF
         approx_C, approx_eps = opt4(sampling_C, sampling_eps, ref_C, ref_eps)

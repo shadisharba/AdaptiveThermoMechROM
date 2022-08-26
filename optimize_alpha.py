@@ -19,7 +19,7 @@ def opt1(sampling_C, sampling_eps, ref_C, ref_eps):
     explicit_minimizer_numerator = lambda Cr, C1, C2: ((Cr - C1).flatten() @ (C2 - C1).flatten())
     explicit_minimizer_denominator = lambda Cr, C1, C2: ((C2 - C1).flatten() @ (C2 - C1).flatten())
 
-    stiffness_weight = 0.01
+    stiffness_weight = 0.1
     numerator, denominator = 0, 0
 
     for C_samples, eps_samples, C_ref, eps_ref in zip(sampling_C, sampling_eps, ref_C, ref_eps):

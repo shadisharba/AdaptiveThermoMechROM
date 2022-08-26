@@ -1,7 +1,7 @@
 import numpy as np
 from numba import jit, prange
 
-@jit(nopython=True, cache=True, parallel=True, fastmath=True, nogil=True)
+@jit(nopython=True, cache=True, parallel=True, nogil=True)
 def interpolate_fluctuation_modes(E01, mat_stiffness, mat_thermal_strain, mat_id, n_gauss, strain_dof, n_modes, n_gp):
     K = np.zeros((2 * n_modes, 2 * n_modes))
     F = np.zeros((2 * n_modes, n_modes))
@@ -10,7 +10,6 @@ def interpolate_fluctuation_modes(E01, mat_stiffness, mat_thermal_strain, mat_id
     I = np.eye(strain_dof)
     S_average = np.zeros((n_modes, n_modes))
     for gp_id in prange(n_gp):
-
         phase_id = mat_id[gp_id // n_gauss]
 
         P = np.hstack((-I, mat_thermal_strain[phase_id]))
@@ -22,14 +21,13 @@ def interpolate_fluctuation_modes(E01, mat_stiffness, mat_thermal_strain, mat_id
 
         S_average += P.T @ mat_stiffness[phase_id] @ P / n_gp
 
-    phi = np.linalg.lstsq(K, F)[0]
-
+    phi = np.linalg.lstsq(K, F, rcond=-1)[0]
     S_average -= F.T @ phi
 
     for gp_id in prange(n_gp):
         E_approx[gp_id] = E01[gp_id] @ phi
 
-    return E_approx, S_average
+    return E_approx, S_average[:6, :]
 
 def update_affine_decomposition(E01, sampling_C, sampling_eps, n_modes, n_phases, n_gp, strain_dof, mat_id, n_gauss):
     I = np.eye(strain_dof)
@@ -95,24 +93,16 @@ def update_affine_decomposition(E01, sampling_C, sampling_eps, n_modes, n_phases
     else:
         return K0, K1, F0, F1, F2, F3, S001, S101, S103, S002, S102, S104
 
-# @jit(nopython=True, cache=True, parallel=True, fastmath=True, nogil=True)
+# @jit(nopython=True, cache=True, parallel=True, nogil=True)
 def get_phi(K0, K1, F0, F1, F2, F3, alpha_C, alpha_eps, alpha_C_eps):
     K = K0 + np.sum(K1 * alpha_C, 0)  # sum over the phases
     F = F0 + np.sum(F1 * alpha_C, 0)
     F[:, -1:] += np.sum(F2 * alpha_eps + F3 * alpha_C_eps, 0)
 
-    return np.linalg.lstsq(K, F, rcond=None)[0]
+    return np.linalg.lstsq(K, F, rcond=-1)[0]
 
-# @jit(nopython=True, cache=True, parallel=True, fastmath=True, nogil=True)
-def effective_S(K0, K1, F0, F1, F2, F3, S001, S101, S103, S002, S102, S104, alpha_C, alpha_eps, alpha_C_eps, alpha_eps2D,
-                alpha_C_eps2D):
-    K = K0 + np.sum(K1 * alpha_C, 0)  # sum over the phases
-    F = F0 + np.sum(F1 * alpha_C, 0)
-    F[:, -1:] += np.sum(F2 * alpha_eps + F3 * alpha_C_eps, 0)
-
-    phi = np.linalg.lstsq(K, F, rcond=None)[0]
-    # phi = np.linalg.lstsq(K, F)[0]
-
+# @jit(nopython=True, cache=True, parallel=True, nogil=True)
+def effective_S(phi, S001, S101, S103, S002, S102, S104, alpha_C, alpha_eps2D, alpha_C_eps2D):
     S00 = S001 + np.sum(S002 * alpha_C, 0)  # sum over the phases
     S11 = S101 + np.sum(S102 * alpha_C, 0)
     S11[:, -1] += np.sum(S103 * alpha_eps2D + S104 * alpha_C_eps2D, 0)
@@ -124,3 +114,13 @@ def transform_strain_localization(E01, phi, n_gp, strain_dof, n_modes):
     for gp_id in prange(n_gp):
         E_approx[gp_id] = E01[gp_id] @ phi
     return E_approx
+
+@jit(nopython=True, cache=True, parallel=True, nogil=True)
+def effective_stress_localization(E01, phi, mat_stiffness, mat_thermal_strain, mat_id, n_gauss, n_gp, strain_dof, n_modes):
+    S_average = np.zeros((strain_dof, n_modes))
+    I = np.eye(strain_dof)
+    for gp_id in prange(n_gp):
+        phase_id = mat_id[gp_id // n_gauss]
+        P = np.hstack((-I, mat_thermal_strain[phase_id]))
+        S_average += mat_stiffness[phase_id] @ (E01[gp_id] @ phi - P)
+    return S_average / n_gp

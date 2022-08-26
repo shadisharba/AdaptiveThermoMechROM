@@ -18,8 +18,6 @@ print(file_name, '\t', data_path)
 
 n_loading_directions = 10
 n_tests = 10
-temperatures = np.linspace(temp1, temp2, num=2)
-alphas = np.linspace(0, 1, num=len(temperatures))
 test_temperatures = np.linspace(temp1, temp2, num=n_tests)
 test_alphas = np.linspace(0, 1, num=n_tests)
 
@@ -31,7 +29,7 @@ global_gradient = mesh['global_gradient']
 n_gp = mesh['n_integration_points']
 n_modes = ref[0]['strain_localization'].shape[-1]
 
-_, samples = read_h5(file_name, data_path, temperatures, get_mesh=False)
+_, samples = read_h5(file_name, data_path, [temp1, temp2], get_mesh=False)
 
 strains = np.random.normal(size=(n_loading_directions, mesh['strain_dof']))
 strains /= la.norm(strains, axis=1)[:, None]
@@ -46,17 +44,12 @@ for idx, alpha in enumerate(test_alphas):
 
     interpolate_temp = lambda x1, x2: x1 + alpha * (x2 - x1)
 
-    upper_bound = np.where(alphas >= alpha)[0][0]
-    id1 = upper_bound if upper_bound > 0 else 1
-    id0 = id1 - 1
-
-    E0 = samples[id0]['strain_localization']
-    E1 = samples[id1]['strain_localization']
+    E0 = samples[0]['strain_localization']
+    E1 = samples[1]['strain_localization']
     E01 = np.ascontiguousarray(np.concatenate((E0, E1), axis=-1))
 
-    sampling_C = np.stack((samples[id0]['mat_stiffness'], \
-                           samples[id1]['mat_stiffness'])).transpose([1, 0, 2, 3])
-    sampling_eps = np.stack((samples[id0]['mat_thermal_strain'], samples[id1]['mat_thermal_strain'])).transpose([1, 0, 2, 3])
+    sampling_C = np.stack((samples[0]['mat_stiffness'], samples[1]['mat_stiffness'])).transpose([1, 0, 2, 3])
+    sampling_eps = np.stack((samples[0]['mat_thermal_strain'], samples[1]['mat_thermal_strain'])).transpose([1, 0, 2, 3])
 
     # reference values
     Eref = ref[idx]['strain_localization']
@@ -101,8 +94,8 @@ for idx, alpha in enumerate(test_alphas):
 
     err_E[:, idx] = [err(Enaive, Eref), err(Eopt0, Eref), err(Eopt1, Eref), err(Eopt2, Eref), err(Eopt4, Eref)]
     err_S[:, idx] = [err(Snaive, Sref), err(Sopt0, Sref), err(Sopt1, Sref), err(Sopt2, Sref), err(Sopt4, Sref)]
-    err_eff_S[:, idx] = \
-        [err(effSnaive, effSref), err(effSopt0, effSref), err(effSopt1, effSref), err(effSopt2, effSref), err(effSopt4, effSref)]
+    err_eff_S[:, idx] = [err(effSnaive, effSref), err(effSopt0, effSref), err(effSopt1, effSref), \
+                         err(effSopt2, effSref), err(effSopt4, effSref)]
 
     for strain_idx, strain in enumerate(strains):
         zeta = np.hstack((strain, 1))

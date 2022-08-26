@@ -65,8 +65,7 @@ for ms_id in [7, 8, 9]:
         # Here, using the Adam as optimizer leads to faster convergence than using Stochastic Gradient Descent (SGD).
         loss_fn = nn.MSELoss(reduction='mean')
         optimizer = torch.optim.Adam(model.parameters(), lr=2e-4)
-        epochs = 15000
-        train_losses, val_losses, best_epoch = model_training(model, loss_fn, optimizer, train_loader, val_loader, epochs,
+        train_losses, val_losses, best_epoch = model_training(model, loss_fn, optimizer, train_loader, val_loader, epochs=15000,
                                                               verbose=False)
 
         # The training history of the ANN is plotted in the figure below.

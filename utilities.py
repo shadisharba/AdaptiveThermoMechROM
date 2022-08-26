@@ -287,7 +287,7 @@ def compute_residual_efficient(stress, global_gradient):
 
     return (np.vstack([x.flatten() for x in stresses]) @ global_gradient).T
 
-@jit(nopython=True, cache=True, parallel=True, fastmath=True, nogil=True)
+@jit(nopython=True, cache=True, parallel=True, nogil=True)
 def compute_err_indicator(stress_loc, gradient_operators_times_w, dof, n_gauss, assembly_idx):
     """
     Compute an error indicator that is independent of the loading
@@ -313,11 +313,11 @@ def compute_err_indicator(stress_loc, gradient_operators_times_w, dof, n_gauss, 
 def compute_err_indicator_efficient(stress_loc, global_gradient):
     return global_gradient.T @ stress_loc.reshape(global_gradient.shape[0], -1)
 
-# @jit(nopython=True, cache=True, parallel=True, fastmath=True, nogil=True)
+# @jit(nopython=True, cache=True, parallel=True, nogil=True)
 def cheap_err_indicator(stress_loc, global_gradient):
     return la.norm(global_gradient.T @ np.sum(stress_loc, -1).flatten())
 
-@jit(nopython=True, cache=True, parallel=True, fastmath=True, nogil=True)
+@jit(nopython=True, cache=True, parallel=True, nogil=True)
 def construct_stress_localization(strain_localization, mat_stiffness, mat_thermal_strain, mat_id, n_gauss, strain_dof):
     """
     Construct stress localization operator out of the strain localization one.
