@@ -1,0 +1,91 @@
+<Xdmf Version="2.2">
+<Domain>
+<Grid Collection="0" GridType="Uniform">
+  <Topology Dimensions  ="257 257 257" TopologyType="3DCORECTMesh" />
+  <Geometry GeometryType="ORIGIN_DXDYDZ">
+    <DataItem Dimensions="3" Format="XML" Name="Origin" NumberType="Float" Precision="4">0 0 0</DataItem>
+    <DataItem Dimensions="3" Format="XML" Name="Spacing" NumberType="Float" Precision="4">1.0 1.0 1.0</DataItem>
+  </Geometry>
+  <Attribute AttributeType="Scalar" Center="Cell" Name="box_0">
+    <DataItem
+            Dimensions="256 256 256"
+            Format    ="HDF"
+            NumberType="int" >
+            generated_rve10_vol20.h5:image_data/dset_0
+    </DataItem>
+   </Attribute>
+  <Attribute AttributeType="Scalar" Center="Cell" Name="box_1">
+    <DataItem
+            Dimensions="256 256 256"
+            Format    ="HDF"
+            NumberType="int" >
+            generated_rve10_vol20.h5:image_data/dset_1
+    </DataItem>
+   </Attribute>
+  <Attribute AttributeType="Scalar" Center="Cell" Name="box_2">
+    <DataItem
+            Dimensions="256 256 256"
+            Format    ="HDF"
+            NumberType="int" >
+            generated_rve10_vol20.h5:image_data/dset_2
+    </DataItem>
+   </Attribute>
+  <Attribute AttributeType="Scalar" Center="Cell" Name="box_3">
+    <DataItem
+            Dimensions="256 256 256"
+            Format    ="HDF"
+            NumberType="int" >
+            generated_rve10_vol20.h5:image_data/dset_3
+    </DataItem>
+   </Attribute>
+  <Attribute AttributeType="Scalar" Center="Cell" Name="box_4">
+    <DataItem
+            Dimensions="256 256 256"
+            Format    ="HDF"
+            NumberType="int" >
+            generated_rve10_vol20.h5:image_data/dset_4
+    </DataItem>
+   </Attribute>
+  <Attribute AttributeType="Scalar" Center="Cell" Name="box_5">
+    <DataItem
+            Dimensions="256 256 256"
+            Format    ="HDF"
+            NumberType="int" >
+            generated_rve10_vol20.h5:image_data/dset_5
+    </DataItem>
+   </Attribute>
+  <Attribute AttributeType="Scalar" Center="Cell" Name="box_6">
+    <DataItem
+            Dimensions="256 256 256"
+            Format    ="HDF"
+            NumberType="int" >
+            generated_rve10_vol20.h5:image_data/dset_6
+    </DataItem>
+   </Attribute>
+  <Attribute AttributeType="Scalar" Center="Cell" Name="box_7">
+    <DataItem
+            Dimensions="256 256 256"
+            Format    ="HDF"
+            NumberType="int" >
+            generated_rve10_vol20.h5:image_data/dset_7
+    </DataItem>
+   </Attribute>
+  <Attribute AttributeType="Scalar" Center="Cell" Name="box_8">
+    <DataItem
+            Dimensions="256 256 256"
+            Format    ="HDF"
+            NumberType="int" >
+            generated_rve10_vol20.h5:image_data/dset_8
+    </DataItem>
+   </Attribute>
+  <Attribute AttributeType="Scalar" Center="Cell" Name="box_9">
+    <DataItem
+            Dimensions="256 256 256"
+            Format    ="HDF"
+            NumberType="int" >
+            generated_rve10_vol20.h5:image_data/dset_9
+    </DataItem>
+   </Attribute>
+  </Grid>
+ </Domain>
+</Xdmf>
