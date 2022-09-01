@@ -1,6 +1,7 @@
 # %%
 # # JEL_thermo-el-ROM: Machine Learned Model
 # ### Imports:
+import os
 import h5py
 import numpy as np
 import torch
@@ -12,10 +13,11 @@ from operator import itemgetter
 from microstructures import *
 from utilities import read_h5
 from eg5_utils import cholesky, reverse_cholesky, bisection_sampling, hierarchical_sampling, RectFFModule, model_training, \
-    plot_training_history
+    plot_training_history, mech_loss
 
+torch.set_default_dtype(torch.float64)
 # ### Load DNS data from HDF5 file:
-for ms_id in [7, 8, 9]:
+for ms_id in [7]: #, 8, 9
     file_name, data_path, temp1, temp2, n_tests, sampling_alphas = itemgetter('file_name', 'data_path', 'temp1', 'temp2',
                                                                               'n_tests',
                                                                               'sampling_alphas')(microstructures[ms_id])
@@ -32,9 +34,9 @@ for ms_id in [7, 8, 9]:
     # The output features $y = [\mathrm{vec}(L), E] \in \mathbb{R}^{27}$ are given by the Cholesky decomposition $L$ of the Mandel notation $C = L L^\intercal$ of the fourth-order effective stiffness tensor $\mathbb{C}$ and the Mandel notation $E \in \mathbb{R}^6$ of the thermal strain tensor $\varepsilon_\theta$ that are obtained by the DNS.
     # Since the different components of $y$ differ greatly in magnitude, each output feature is normalized with its absolute maximum value.
     # Scaling
-    x = torch.FloatTensor(x / np.max(x, axis=0))
+    x = torch.DoubleTensor(x / np.max(x, axis=0))
     y_normalization_factor = np.max(np.abs(y), axis=0)
-    y = torch.FloatTensor(y / y_normalization_factor)
+    y = torch.DoubleTensor(y / y_normalization_factor)
     dset = TensorDataset(x, y)
     n_out_features = y.size()[1]
     n_in_features = x.size()[1]
@@ -57,16 +59,17 @@ for ms_id in [7, 8, 9]:
         val_loader = DataLoader(val_data, batch_size=len(val_data))
         # Create a PyTorch model for a Feedforward Artificial Neural Network (FFANN) with 2 hidden layers and 64 neurons per layer.
         # `Tanh` is used as activation function in the hidden layers and the identity as activation function in the output layer.
-        model = RectFFModule(n_in_features, 64, 2, nn.Tanh(), nn.Identity(), n_out_features)
+        model = RectFFModule(n_in_features, 64, 3, nn.Tanh(), nn.Identity(), n_out_features)
         # print(model)
 
         # The MSE loss function is used for training. Using the "mechanical loss function", which is defined as
         # $$\frac{||L_{pred} - L||_F}{||L||_F} + \frac{||\varepsilon_{\theta,pred} - \varepsilon_{\theta}||_F}{||\varepsilon_\theta||_F}$$
         # Here, using the Adam as optimizer leads to faster convergence than using Stochastic Gradient Descent (SGD).
         loss_fn = nn.MSELoss(reduction='mean')
+        loss_fn = mech_loss
         optimizer = torch.optim.Adam(model.parameters(), lr=2e-4)
-        train_losses, val_losses, best_epoch = model_training(model, loss_fn, optimizer, train_loader, val_loader, epochs=15000,
-                                                              verbose=False)
+        train_losses, val_losses, best_epoch = model_training(model, loss_fn, optimizer, train_loader, val_loader, epochs=4000*len(train_data),
+                                                              verbose=False) # 15000
 
         # The training history of the ANN is plotted in the figure below.
         fig, ax = plt.subplots()
@@ -84,7 +87,7 @@ for ms_id in [7, 8, 9]:
             ax.set_ylabel(r'Scaled output feature [-]')
         plt.grid('on')
         plt.tight_layout()
-        plt.show()
+        plt.show(block=False)
 
         # Plot of the error
         norm_error = np.linalg.norm(y - y_pred.detach(), axis=1) / np.linalg.norm(y, axis=1) * 100
@@ -94,7 +97,7 @@ for ms_id in [7, 8, 9]:
         ax.set_ylabel(r'Relative error [\%]')
         plt.grid('on')
         plt.tight_layout()
-        plt.show()
+        plt.show(block=False)
         print(f'{np.argmax(norm_error)/100 = :.2f}')
         print(f'{len(train_data)} samples')
         print(f'{len(val_data)} validations')
@@ -111,24 +114,23 @@ for ms_id in [7, 8, 9]:
             dset_stiffness = group.require_dataset(f'eff_stiffness_{test_temperatures[i]:07.2f}', (6, 6), dtype='f')
             dset_thermal_strain = group.require_dataset(f'eff_thermal_strain_{test_temperatures[i]:07.2f}', (6, ), dtype='f')
 
-            C = reverse_cholesky(y_approx[i, :21])
+            C = reverse_cholesky(torch.tensor(y_approx[i, :21]))
             eps = y_approx[i, 21:]
 
             dset_stiffness[:] = C.T
             dset_thermal_strain[:] = eps
 
-            Cref = np.asarray(ref['eff_stiffness'], dtype=float)
-            epsref = np.asarray(ref['eff_thermal_strain'], dtype=float)
-            invL = np.linalg.inv(np.linalg.cholesky(Cref))
-            errC[i] = np.linalg.norm(invL @ C @ invL.T - np.eye(6)) / np.linalg.norm(np.eye(6)) * 100
-            erreps[i] = np.linalg.norm(epsref - eps) / np.linalg.norm(epsref) * 100
+            Cref = torch.tensor(ref['eff_stiffness'], dtype=float)
+            epsref = torch.tensor(ref['eff_thermal_strain'], dtype=float)
+            invL = torch.linalg.inv(torch.linalg.cholesky(Cref))
+            errC[i] = torch.linalg.norm(invL @ C @ invL.T - torch.eye(6)) / torch.linalg.norm(torch.eye(6)) * 100
+            erreps[i] = torch.linalg.norm(epsref - eps) / torch.linalg.norm(epsref) * 100
             # erreps[i] = (epsref @ Cref @ epsref - eps @ Cref @ eps) / (epsref @ Cref @ epsref) * 100
 
         ylabels = [
             'Relative error $e_{\overline{\mathbb{C}}}$ [\%]',
             r'Relative error $e_{\overline{\boldmath{\varepsilon}}_{\uptheta}}$ [\%]'
         ]
-
         for idx, err in enumerate([errC, erreps]):
             fig, ax = plt.subplots(1, 1, figsize=[4, 4])
             ax.plot(test_temperatures, err, 'b-')
@@ -136,6 +138,6 @@ for ms_id in [7, 8, 9]:
             ax.set_ylabel(ylabels[idx])
             plt.grid('on')
             plt.tight_layout()
-            plt.show()
+            plt.show(block=False)
             print(f'{np.max(err) = :.2f} %')
     file.close()

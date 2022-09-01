@@ -247,6 +247,24 @@ class RectFFModule(FFModule):
 def cholesky(array):
     return np.linalg.cholesky(array)[np.tril_indices(array.shape[0])]
 
+def tril_cholesky(array):
+    if not torch.is_tensor(array):
+        array = torch.tensor(array)
+    if array.ndim == 1:   
+        array = torch.unsqueeze(array, dim=0)
+    N, M = array.shape
+    m = torch.sqrt(torch.tensor(2 * M + 0.25)) - 0.5
+    if m == torch.floor(m): # check if M is triangular number
+        m = int(m)
+    else:
+        raise ValueError
+    L_tril = torch.zeros((N, m, m))
+    idx0 = torch.arange(N)
+    idx1, idx2 = torch.tril_indices(m, m)
+    idx0, idx1, idx2 = torch.repeat_interleave(idx0, M), torch.tile(idx1, [N]), torch.tile(idx2, [N])
+    L_tril[idx0, idx1, idx2] = array.flatten()
+    return L_tril
+
 def reverse_cholesky(array):
     """Reconstruct matrices from their Cholesky decompositions (https://en.wikipedia.org/wiki/Cholesky_decomposition),
     whose elements are given in flattened form by `array`.
@@ -259,24 +277,57 @@ def reverse_cholesky(array):
     :return: `Numpy` array with shape :code:`(m, m)` or :code:`(N, m, m)`
     :rtype: :class:`numpy.ndarray`
     """
-    if array.ndim == 1:
-        array = np.expand_dims(array, axis=0)
-    N, M = array.shape
-    m = np.sqrt(2 * M + 0.25) - 0.5
-    if m == np.floor(m):  # check if M is triangular number
-        m = int(m)
-    else:
-        raise ValueError
-    C_tril = np.zeros((N, m, m))
-    idx0 = np.arange(N)
-    idx1, idx2 = np.tril_indices(m)
-    idx0, idx1, idx2 = np.repeat(idx0, array.shape[1]), np.tile(idx1, N), np.tile(idx2, N)
-    C_tril[idx0, idx1, idx2] = array.flatten()
-    C = np.einsum('nij,nkj->nik', C_tril, C_tril)  # Einstein summation of C_tril @ C_tril.T
-
+    #print(array)
+    L_tril = tril_cholesky(array)
+    #print(L_tril)
+    C = torch.einsum('nij,nkj->nik', L_tril, L_tril)  # Einstein summation of C_tril @ C_tril.T
+    #print(C)
+    #print('-'*20)
     if C.shape[0] == 1:
         C = np.squeeze(C, axis=0)
     return C
+
+def inv_cholesky(array):
+    L_tril = tril_cholesky(array)
+    return torch.linalg.inv(L_tril)
+
+def unsqueeze(output, target):
+    if output.dim() == 1:
+        output = torch.unsqueeze(output, 0)
+    if target.dim() == 1:
+        target = torch.unsqueeze(target, 0)
+    return output, target
+
+def stiffness_loss(output, target, reduction='mean'):
+    output, target = unsqueeze(output, target)
+    L, L_pred = (target, output[:,:21]) if target.size(1) == 21 else (target[:,:21], output[:,:21])
+    C, C_pred = reverse_cholesky(L), reverse_cholesky(L_pred)
+    #assert torch.allclose(torch.linalg.cholesky(C), tril_cholesky(L))
+    #loss = (torch.linalg.norm(L - L_pred, dim=1) / torch.linalg.norm(L, dim=1))**2
+    invL = inv_cholesky(L)
+    C_star = torch.einsum('nij,njk,nlk->nil', invL, C_pred, invL)  # Einstein summation of invL @ C_pred @ invL.T
+    #L_tril = tril_cholesky(L)
+    #C_star2 = torch.linalg.solve_triangular(L_tril, torch.linalg.solve_triangular(L_tril.transpose(1,2), C_pred, left=False, upper=True), upper=False)
+    I = torch.eye(6).repeat(target.size(0), 1, 1)
+    loss = torch.linalg.norm(C_star - I, dim=[1,2]) / torch.linalg.norm(I, dim=[1,2])
+    #loss2 = torch.linalg.norm(C_star2 - I, dim=[1,2]) / torch.linalg.norm(I, dim=[1,2])
+    #assert torch.allclose(loss1, loss2)
+    return torch.mean(loss)
+
+def thermal_strain_loss(output, target, reduction='mean'):
+    output, target = unsqueeze(output, target)
+    eps, eps_pred = (target, output[:,:6]) if target.size(1) == 6 else (target[:,21:27], output[:,21:27])
+    loss = torch.linalg.norm(eps - eps_pred, dim=1) / torch.linalg.norm(eps, dim=1)
+    return torch.mean(loss)
+    
+def mech_loss(output, target, reduction='mean'):
+    output, target = unsqueeze(output, target)
+    L, L_pred = target[:,:21], output[:,:21]
+    eps, eps_pred = target[:,21:27], output[:,21:27]
+    loss1 = stiffness_loss(L_pred, L, reduction)
+    loss2 = thermal_strain_loss(eps_pred, eps, reduction)
+    #print(loss1, loss2)
+    return loss1 + loss2
 
 def get_data(data_loader, device='cpu'):
     x_list, y_list = [], []
