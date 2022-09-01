@@ -138,4 +138,5 @@ for ms_id in [7, 8, 9]:
             plt.tight_layout()
             plt.show()
             print(f'{np.max(err) = :.2f} %')
+        plt.close('all')
     file.close()

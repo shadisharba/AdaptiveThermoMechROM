@@ -12,7 +12,7 @@ from optimize_alpha import opt4_alphas, opt4
 from utilities import read_h5, construct_stress_localization, volume_average, plot_and_save, cm, compute_err_indicator_efficient
 
 np.random.seed(0)
-np.set_printoptions(precision=3)
+# np.set_printoptions(precision=3)
 
 for ms_id in [7, 8, 9]:
     file_name, data_path, temp1, temp2, n_tests, sampling_alphas = itemgetter('file_name', 'data_path', 'temp1', 'temp2',
