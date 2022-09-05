@@ -12,8 +12,9 @@ from operator import itemgetter
 from microstructures import *
 from utilities import read_h5
 from eg5_utils import cholesky, reverse_cholesky, bisection_sampling, hierarchical_sampling, RectFFModule, model_training, \
-    plot_training_history
+    plot_training_history, mech_loss
 
+torch.set_default_dtype(torch.float32)
 # ### Load DNS data from HDF5 file:
 for ms_id in [7, 8, 9]:
     file_name, data_path, temp1, temp2, n_tests, sampling_alphas = itemgetter('file_name', 'data_path', 'temp1', 'temp2',
@@ -55,18 +56,19 @@ for ms_id in [7, 8, 9]:
         batch_size = len(train_data)
         train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
         val_loader = DataLoader(val_data, batch_size=len(val_data))
-        # Create a PyTorch model for a Feedforward Artificial Neural Network (FFANN) with 2 hidden layers and 64 neurons per layer.
+        # Create a PyTorch model for a Feedforward Artificial Neural Network (FFANN) with 3 hidden layers and 64 neurons per layer.
         # `Tanh` is used as activation function in the hidden layers and the identity as activation function in the output layer.
-        model = RectFFModule(n_in_features, 64, 2, nn.Tanh(), nn.Identity(), n_out_features)
+        model = RectFFModule(n_in_features, 64, 3, nn.Tanh(), nn.Identity(), n_out_features)
         # print(model)
 
         # The MSE loss function is used for training. Using the "mechanical loss function", which is defined as
         # $$\frac{||L_{pred} - L||_F}{||L||_F} + \frac{||\varepsilon_{\theta,pred} - \varepsilon_{\theta}||_F}{||\varepsilon_\theta||_F}$$
         # Here, using the Adam as optimizer leads to faster convergence than using Stochastic Gradient Descent (SGD).
         loss_fn = nn.MSELoss(reduction='mean')
+        # loss_fn = mech_loss
         optimizer = torch.optim.Adam(model.parameters(), lr=2e-4)
-        train_losses, val_losses, best_epoch = model_training(model, loss_fn, optimizer, train_loader, val_loader, epochs=15000,
-                                                              verbose=False)
+        train_losses, val_losses, best_epoch = model_training(model, loss_fn, optimizer, train_loader, val_loader,
+                                                              epochs=4000 * len(train_data), verbose=False)
 
         # The training history of the ANN is plotted in the figure below.
         fig, ax = plt.subplots()
@@ -84,7 +86,7 @@ for ms_id in [7, 8, 9]:
             ax.set_ylabel(r'Scaled output feature [-]')
         plt.grid('on')
         plt.tight_layout()
-        plt.show()
+        plt.show(block=False)
 
         # Plot of the error
         norm_error = np.linalg.norm(y - y_pred.detach(), axis=1) / np.linalg.norm(y, axis=1) * 100
@@ -94,7 +96,7 @@ for ms_id in [7, 8, 9]:
         ax.set_ylabel(r'Relative error [\%]')
         plt.grid('on')
         plt.tight_layout()
-        plt.show()
+        plt.show(block=False)
         print(f'{np.argmax(norm_error)/100 = :.2f}')
         print(f'{len(train_data)} samples')
         print(f'{len(val_data)} validations')
@@ -128,7 +130,6 @@ for ms_id in [7, 8, 9]:
             'Relative error $e_{\overline{\mathbb{C}}}$ [\%]',
             r'Relative error $e_{\overline{\boldmath{\varepsilon}}_{\uptheta}}$ [\%]'
         ]
-
         for idx, err in enumerate([errC, erreps]):
             fig, ax = plt.subplots(1, 1, figsize=[4, 4])
             ax.plot(test_temperatures, err, 'b-')
@@ -136,7 +137,7 @@ for ms_id in [7, 8, 9]:
             ax.set_ylabel(ylabels[idx])
             plt.grid('on')
             plt.tight_layout()
-            plt.show()
+            plt.show(block=False)
             print(f'{np.max(err) = :.2f} %')
         plt.close('all')
     file.close()
