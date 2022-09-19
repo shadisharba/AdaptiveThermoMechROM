@@ -15,9 +15,9 @@ test_temperatures = np.linspace(temp1, temp2, num=n_tests)
 test_alphas = np.linspace(0, 1, num=n_tests)
 n_approaches = 5
 
-abs_err = lambda x, y: la.norm(x - y) * 100
+abs_err = lambda x, y: la.norm(x - y)
 rel_err = lambda x, y: la.norm(x - y) * 100 / la.norm(y)
-err_measure = rel_err
+err_measure = abs_err
 
 for mat_id in range(2):
     sampling_C = [[stiffness_cu(temp1), stiffness_cu(temp2)], [stiffness_wsc(temp1), stiffness_wsc(temp2)]]
@@ -68,19 +68,21 @@ for mat_id in range(2):
         trace_eps[3, idx] = opt2_trace_eps
         trace_eps[4, idx] = opt4_trace_eps
 
-        err_max_eig[0, idx] = err_measure(ref_max_eig_value, ref_max_eig_value)
-        err_max_eig[1, idx] = err_measure(naive_max_eig_value, ref_max_eig_value)
-        err_max_eig[2, idx] = err_measure(opt1_max_eig_value, ref_max_eig_value)
-        err_max_eig[3, idx] = err_measure(opt2_max_eig_value, ref_max_eig_value)
-        err_max_eig[4, idx] = err_measure(opt4_max_eig_value, ref_max_eig_value)
+        # err_max_eig[0, idx] = err_measure(ref_max_eig_value, ref_max_eig_value)
+        err_max_eig[0, idx] = err_measure(naive_max_eig_value, ref_max_eig_value)
+        err_max_eig[1, idx] = err_measure(opt1_max_eig_value, ref_max_eig_value)
+        err_max_eig[2, idx] = err_measure(opt2_max_eig_value, ref_max_eig_value)
+        err_max_eig[3, idx] = err_measure(opt4_max_eig_value, ref_max_eig_value)
 
-        err_trace_eps[0, idx] = err_measure(ref_trace_eps, ref_trace_eps)
-        err_trace_eps[1, idx] = err_measure(naive_trace_eps, ref_trace_eps)
-        err_trace_eps[2, idx] = err_measure(opt1_trace_eps, ref_trace_eps)
-        err_trace_eps[3, idx] = err_measure(opt2_trace_eps, ref_trace_eps)
-        err_trace_eps[4, idx] = err_measure(opt4_trace_eps, ref_trace_eps)
+        # err_trace_eps[0, idx] = err_measure(ref_trace_eps, ref_trace_eps)
+        err_trace_eps[0, idx] = err_measure(naive_trace_eps, ref_trace_eps)
+        err_trace_eps[1, idx] = err_measure(opt1_trace_eps, ref_trace_eps)
+        err_trace_eps[2, idx] = err_measure(opt2_trace_eps, ref_trace_eps)
+        err_trace_eps[3, idx] = err_measure(opt4_trace_eps, ref_trace_eps)
 
+    err_max_eig /= np.max(max_eig_value)
     max_eig_value /= np.max(max_eig_value)
+    err_trace_eps /= np.max(trace_eps)
     trace_eps /= np.max(trace_eps)
 
     labels = ['R', 'O$_0$', 'O$_1$', 'O$_2$', 'O$_4$']
@@ -103,18 +105,21 @@ for mat_id in range(2):
         plt.plot(test_temperatures, trace_eps[idx], label=labels[idx], marker=markers[idx], color=colors[idx], markevery=6)
     plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [None, None])
 
+    labels = ['O$_0$', 'O$_1$', 'O$_2$', 'O$_4$']
+
     fig_name = f'eg1_err_max_eig{mat_id}'
     xlabel = 'Temperature [K]'
-    ylabel = 'Relative error max($\lambda(\mathbb{C})$) [\%]'
+    ylabel = 'Normalized absolute error max($\lambda(\mathbb{C})$) [-]'
     plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
-    for idx in range(n_approaches):
-        plt.plot(test_temperatures, err_max_eig[idx], label=labels[idx], marker=markers[idx], color=colors[idx], markevery=6)
-    plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [None, None])
+    for idx in range(n_approaches - 1):
+        plt.semilogy(test_temperatures, err_max_eig[idx], label=labels[idx], marker=markers[idx], color=colors[idx], markevery=6)
+    plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [1e-18, 1], loc='center left')
 
     fig_name = f'eg1_err_tr_thermal_strain{mat_id}'
     xlabel = 'Temperature [K]'
-    ylabel = r'Relative error tr($\boldsymbol{\varepsilon}_\uptheta$) [\%]'
+    ylabel = r'Normalized absolute error tr($\boldsymbol{\varepsilon}_\uptheta$) [-]'
     plt.figure(figsize=(6 * cm, 6 * cm), dpi=600)
-    for idx in range(n_approaches):
-        plt.plot(test_temperatures, err_trace_eps[idx], label=labels[idx], marker=markers[idx], color=colors[idx], markevery=6)
-    plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [None, None])
+    for idx in range(n_approaches - 1):
+        plt.semilogy(test_temperatures, err_trace_eps[idx], label=labels[idx], marker=markers[idx], color=colors[idx],
+                     markevery=6)
+    plot_and_save(xlabel, ylabel, fig_name, [temp1, temp2], [1e-18, 1], loc='center left')

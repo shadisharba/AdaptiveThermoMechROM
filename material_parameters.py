@@ -68,9 +68,9 @@ if __name__ == "__main__":
         parameters[idx, 7] = heat_capacity_wsc(temperature) * 1e3
 
     labels = [
-        r'E\textsuperscript{Cu}', r'E\textsuperscript{TFC}', r'${\varepsilon}_{\uptheta}^{\text{Cu}}$',
-        r'${\varepsilon}_{\uptheta}^{\text{TFC}}$', r'$\kappa$\textsuperscript{Cu}', r'$\kappa$\textsuperscript{TFC}',
-        r'c\textsuperscript{Cu}', r'c\textsuperscript{TFC}'
+        r'E\textsuperscript{Cu}', r'E\textsuperscript{FTC}', r'${\varepsilon}_{\uptheta}^{\text{Cu}}$',
+        r'${\varepsilon}_{\uptheta}^{\text{FTC}}$', r'$\kappa$\textsuperscript{Cu}', r'$\kappa$\textsuperscript{FTC}',
+        r'c\textsuperscript{Cu}', r'c\textsuperscript{FTC}'
     ]
     markers = ['s', 'd', '+', 'x', 'o']
     colors = ['C0', 'C1', 'C2', 'C3', 'C4']

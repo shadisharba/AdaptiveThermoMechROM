@@ -1,5 +1,7 @@
 [![Actions Status](https://github.com/shadialameddin/del/workflows/Build/badge.svg)](https://github.com/shadialameddin/del/actions)
 
+[![Identifier](https://img.shields.io/badge/doi-10.18419%2Fdarus--2822-d45815.svg)](https://doi.org/10.18419/darus-2822)
+
 # AdaptiveThermoMechROM
 
 An adaptive approach for strongly temperature-dependent thermoelastic homogenization. Using direct numerical simulations at few discrete temperatures, an energy optimal basis is constructed to be used at any intermediate temperature in real-time.
