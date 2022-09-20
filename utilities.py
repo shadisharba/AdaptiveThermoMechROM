@@ -1,3 +1,4 @@
+import contextlib
 import timeit
 
 import h5py
@@ -37,7 +38,7 @@ def ecdf(x):
     """empirical cumulative distribution function"""
     # plt.step(*ecdf(np.asarray([1, 1, 2, 3, 4])), where='post')
     n = len(x)
-    return [np.hstack((np.min(x), np.sort(np.squeeze(np.asarray(x))))), np.hstack((0, np.arange(1, n + 1) / n))]
+    return [np.hstack((np.min(x), np.sort(np.squeeze(np.asarray(x))))), np.hstack((0, np.linspace(1 / n, 1, n)))]
 
 def voxel_quadrature(discretisation, strain_dof=6, nodal_dof=3):
     """
@@ -73,10 +74,10 @@ def voxel_quadrature(discretisation, strain_dof=6, nodal_dof=3):
              dN_dzeta(*quadrature_coordinates[idx])]) * 2 * np.asarray(discretisation)[:, None]
         # l_ref=2 / (1/L_physical = 1/N) -> 2 * N
 
-        # [xx,yy,zz,sqrt(2)*xy,sqrt(2)*yz,sqrt(2)*xz]
-        position_x = [[1, 0, 0], [0, 0, 0], [0, 0, 0], [0, 1, 0], [0, 0, 0], [0, 0, 1]]
-        position_y = [[0, 0, 0], [0, 1, 0], [0, 0, 0], [1, 0, 0], [0, 0, 1], [0, 0, 0]]
-        position_z = [[0, 0, 0], [0, 0, 0], [0, 0, 1], [0, 0, 0], [0, 1, 0], [1, 0, 0]]
+        # [xx,yy,zz,sqrt(2)*xy,sqrt(2)*xz,sqrt(2)*yz]
+        position_x = [[1, 0, 0], [0, 0, 0], [0, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, 0]]
+        position_y = [[0, 0, 0], [0, 1, 0], [0, 0, 0], [1, 0, 0], [0, 0, 0], [0, 0, 1]]
+        position_z = [[0, 0, 0], [0, 0, 0], [0, 0, 1], [0, 0, 0], [1, 0, 0], [0, 1, 0]]
         gradient_operator = np.asarray(
             ((np.kron(shape_function_derivatives[0, :], position_x) + np.kron(shape_function_derivatives[1, :], position_y) +
               np.kron(shape_function_derivatives[2, :], position_z))) /
@@ -100,8 +101,6 @@ def read_h5(file_name, data_path, temperatures, get_mesh=True):
         mesh: dictionary that contains microstructural details such as volume fraction, voxel type, ...
         samples: list of simulation results at each temperature
     """
-    # current effective quantities follow LS-DYNA ordering. Hence, the same order is applied here
-    order0, order1 = [4, 5], [5, 4]
     axis_order = [0, 2, 1]  # n_gauss x strain_dof x 7 (7=6 mechanical + 1 thermal expansion)
 
     samples = []
@@ -111,45 +110,38 @@ def read_h5(file_name, data_path, temperatures, get_mesh=True):
             sample = {}
             samples.append(sample)
             sample['temperature'] = temperature
-            sample['eff_conductivity'] = file[f'{data_path}/eff_conductivity_{temperature:07.2f}'][:]
             sample['eff_heat_capacity'] = file[f'{data_path}/eff_heat_capacity_{temperature:07.2f}'][:]
-            sample['eff_stiffness'] = file[f'{data_path}/eff_stiffness_{temperature:07.2f}'][:]
             sample['eff_thermal_strain'] = file[f'{data_path}/eff_thermal_strain_{temperature:07.2f}'][:]
+            # eff_stiffness is transposed because it's coming from matlab to h5 file to python
+            sample['eff_stiffness'] = file[f'{data_path}/eff_stiffness_{temperature:07.2f}'][:].T
+            sample['eff_conductivity'] = file[f'{data_path}/eff_conductivity_{temperature:07.2f}'][:].T
 
-            sample['conductivity'] = file[f'{data_path}/material_{temperature:07.2f}'].attrs['conductivity']
-            sample['heat_capacity'] = file[f'{data_path}/material_{temperature:07.2f}'].attrs['heat_capacity']
-            sample['elastic_modulus'] = file[f'{data_path}/material_{temperature:07.2f}'].attrs['elastic_modulus']
-            sample['thermal_strain'] = file[f'{data_path}/material_{temperature:07.2f}'].attrs['thermal_strain']
-            sample['poisson_ratio'] = file[f'{data_path}/material_{temperature:07.2f}'].attrs['poisson_ratio']  # constant
-
-            sample['strain_localization'] = file[f'{data_path}/localization_strain_{temperature:07.2f}'][:].transpose(axis_order)
-            sample['strain_localization'][:, order0, :] = sample['strain_localization'][:, order1, :]
-            sample['strain_localization'][:, :, order0] = sample['strain_localization'][:, :, order1]
-
-            sample['localization_mat_stiffness'] = file[f'{data_path}/localization_mat_stiffness_{temperature:07.2f}'][:]
-            sample['localization_mat_stiffness'][:, order0, :] = sample['localization_mat_stiffness'][:, order1, :]
-            sample['localization_mat_stiffness'][:, :, order0] = sample['localization_mat_stiffness'][:, :, order1]
-
-            sample['localization_mat_thermal_strain'] = file[
-                f'{data_path}/localization_mat_thermal_strain_{temperature:07.2f}'][:][..., None]
-            sample['localization_mat_thermal_strain'][:, order0] = sample['localization_mat_thermal_strain'][:, order1]
+            sample['input_conductivity'] = file[f'{data_path}/material_{temperature:07.2f}'].attrs['conductivity']
+            sample['input_heat_capacity'] = file[f'{data_path}/material_{temperature:07.2f}'].attrs['heat_capacity']
+            sample['input_elastic_modulus'] = file[f'{data_path}/material_{temperature:07.2f}'].attrs['elastic_modulus']
+            sample['input_thermal_strain'] = file[f'{data_path}/material_{temperature:07.2f}'].attrs['thermal_strain']
+            sample['input_poisson_ratio'] = file[f'{data_path}/material_{temperature:07.2f}'].attrs['poisson_ratio']  # constant
 
             sample['normalization_factor_mech'] = file[f'{data_path}'].attrs['normalization_factor_mech'][0]
             sample['normalization_factor_therm'] = file[f'{data_path}'].attrs['normalization_factor_therm'][0]
 
+            sample['mat_stiffness'] = file[f'{data_path}/localization_mat_stiffness_{temperature:07.2f}'][:]
+
+            sample['mat_thermal_strain'] = file[f'{data_path}/localization_mat_thermal_strain_{temperature:07.2f}'][:][..., None]
+
             sample['combo_strain_loc0'] = None
             sample['combo_strain_loc1'] = None
-            if mesh['vox_type'] == 'combo':
-                sample['combo_strain_loc0'] = \
-                    file[f'{data_path}/localization_strain0_{temperature:07.2f}'][:].transpose(axis_order)
-                sample['combo_strain_loc0'][:, order0, :] = sample['combo_strain_loc0'][:, order1, :]
-                sample['combo_strain_loc0'][:, :, order0] = sample['combo_strain_loc0'][:, :, order1]
 
-                sample['combo_strain_loc1'] = \
-                    file[f'{data_path}/localization_strain1_{temperature:07.2f}'][:].transpose(axis_order)
-                sample['combo_strain_loc1'][:, order0, :] = sample['combo_strain_loc1'][:, order1, :]
-                sample['combo_strain_loc1'][:, :, order0] = sample['combo_strain_loc1'][:, :, order1]
+            with contextlib.suppress(Exception):
+                sample['strain_localization'] = file[f'{data_path}/localization_strain_{temperature:07.2f}'][:].transpose(
+                    axis_order)
 
+                if mesh['vox_type'] == 'combo':
+                    sample['combo_strain_loc0'] = \
+                        file[f'{data_path}/localization_strain0_{temperature:07.2f}'][:].transpose(axis_order)
+
+                    sample['combo_strain_loc1'] = \
+                        file[f'{data_path}/localization_strain1_{temperature:07.2f}'][:].transpose(axis_order)
         if get_mesh:
             mesh['volume_fraction'] = file[f'{data_path}'].attrs['combo_volume_fraction']
             mesh['combo_discretisation'] = np.int64(file[f'{data_path}'].attrs['combo_discretisation'])
@@ -158,11 +150,12 @@ def read_h5(file_name, data_path, temperatures, get_mesh=True):
             mesh['convergence_tolerance'] = file[f'{data_path}'].attrs['convergence tolerance'][0]
             mesh['assembly_idx'] = np.int64(file[f'{data_path}/assembly_idx'][:] - 1)  # shift to zero based indexing
             mesh['n_elements'] = np.prod(mesh['combo_discretisation'])
+            mesh['n_nodes'] = mesh['n_elements']  # due to periodic boundary conditions
             mesh['strain_dof'] = 6  # TODO these values should be stored and read from h5
             mesh['nodal_dof'] = 3
-            mesh['n_nodes'] = 8
-            mesh['dof'] = mesh['n_elements'] * mesh['nodal_dof']
-            mesh['element_dof'] = mesh['n_nodes'] * mesh['nodal_dof']
+            mesh['element_nodes'] = 8
+            mesh['dof'] = mesh['n_nodes'] * mesh['nodal_dof']
+            mesh['element_dof'] = mesh['element_nodes'] * mesh['nodal_dof']
             mesh['element_strain_dof'] = mesh['n_gauss'] * mesh['strain_dof']
             mesh['n_integration_points'] = mesh['n_gauss'] * mesh['n_elements']
 
@@ -170,9 +163,10 @@ def read_h5(file_name, data_path, temperatures, get_mesh=True):
             if mesh['vox_type'] == 'combo':
                 mesh['combo_idx'] = tuple(np.int64(file[f'{data_path}/combo_idx'][0]) - 1)  # shift to zero based indexing
                 mesh['combo_vol_frac0'] = file[f'{data_path}/combo_vol_frac0'][0]
-                for element_id, phase_id in enumerate(mesh['mat_id']):
-                    if phase_id == 2:
-                        mesh['mat_id'][element_id] = mesh['combo_idx'].index(element_id) + 2
+                mesh['mat_id'][mesh['mat_id'] == 2] = np.arange(len(mesh['combo_idx'])) + 2
+                # for element_id, phase_id in enumerate(mesh['mat_id']):
+                #     if phase_id == 2:
+                #         mesh['mat_id'][element_id] = mesh['combo_idx'].index(element_id) + 2
 
             assert (mesh['element_formulation'] == 'hex8'
                     and mesh['n_gauss'] == 8), NotImplementedError('Only fully integrated voxel element is implemented')
@@ -201,7 +195,7 @@ def read_h5(file_name, data_path, temperatures, get_mesh=True):
                                                       (mesh['n_elements'] * mesh['element_strain_dof'], mesh['dof']))
 
             mesh['global_gradient'] = global_gradient.tocsr()
-            print(f'global gradient: {(mesh["global_gradient"].data.nbytes) / 1024**2} MB')
+            print(f'global gradient: {(mesh["global_gradient"].data.nbytes) / 1024 ** 2} MB')
 
     return mesh, samples
 
@@ -215,7 +209,7 @@ def verify_data(mesh, sample):
     """
     convergence_tolerance, strain_localization = mesh['convergence_tolerance'], sample['strain_localization']
     eff_stiffness, eff_thermal_strain = sample['eff_stiffness'], sample['eff_thermal_strain']
-    mat_thermal_strain, mat_stiffness = sample['localization_mat_thermal_strain'], sample['localization_mat_stiffness']
+    mat_thermal_strain, mat_stiffness = sample['mat_thermal_strain'], sample['mat_stiffness']
     combo_strain_loc0, combo_strain_loc1 = sample['combo_strain_loc0'], sample['combo_strain_loc1']
 
     macro_strain = np.asarray([3, .7, 1.5, 0.5, 2, 1])
@@ -231,8 +225,8 @@ def verify_data(mesh, sample):
     residual = compute_residual(stress, mesh['dof'], mesh['n_elements'], mesh['element_dof'], mesh['n_gauss'],
                                 mesh['assembly_idx'], mesh['gradient_operators_times_w'])
 
-    # eff_stiffness is transposed because it's coming from matlab to h5 file to python
-    abs_err = eff_stiffness_from_localization - np.vstack((eff_stiffness, -eff_stiffness @ eff_thermal_strain)).T
+    abs_err = eff_stiffness_from_localization - np.hstack((eff_stiffness, -np.reshape(eff_stiffness @ eff_thermal_strain,
+                                                                                      (-1, 1))))
     err = lambda x, y: np.mean(la.norm(x - y) / la.norm(y))
 
     assert err(eff_stiffness_from_localization,
@@ -287,14 +281,13 @@ def compute_residual(stress, dof, n_elements, element_dof, n_gauss, assembly_idx
     return residuals
 
 def compute_residual_efficient(stress, global_gradient):
-
     stresses = stress
     if not isinstance(stress, list):
         stresses = [stress]
 
     return (np.vstack([x.flatten() for x in stresses]) @ global_gradient).T
 
-@jit(nopython=True, cache=True, parallel=True, fastmath=True, nogil=True)
+@jit(nopython=True, cache=True, parallel=True, nogil=True)
 def compute_err_indicator(stress_loc, gradient_operators_times_w, dof, n_gauss, assembly_idx):
     """
     Compute an error indicator that is independent of the loading
@@ -320,11 +313,11 @@ def compute_err_indicator(stress_loc, gradient_operators_times_w, dof, n_gauss, 
 def compute_err_indicator_efficient(stress_loc, global_gradient):
     return global_gradient.T @ stress_loc.reshape(global_gradient.shape[0], -1)
 
-# @jit(nopython=True, cache=True, parallel=True, fastmath=True, nogil=True)
+# @jit(nopython=True, cache=True, parallel=True, nogil=True)
 def cheap_err_indicator(stress_loc, global_gradient):
     return la.norm(global_gradient.T @ np.sum(stress_loc, -1).flatten())
 
-@jit(nopython=True, cache=True, parallel=True, fastmath=True, nogil=True)
+@jit(nopython=True, cache=True, parallel=True, nogil=True)
 def construct_stress_localization(strain_localization, mat_stiffness, mat_thermal_strain, mat_id, n_gauss, strain_dof):
     """
     Construct stress localization operator out of the strain localization one.

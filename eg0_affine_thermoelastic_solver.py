@@ -1,3 +1,7 @@
+"""
+Load all microstructures and try to reconstruct stress and strain fields and effective properties
+"""
+
 import numpy as np
 from microstructures import *
 from operator import itemgetter
@@ -16,3 +20,5 @@ for microstructure in microstructures:
 
     for sample in samples:
         verify_data(mesh, sample)
+
+print(f'{"done":-^50}')

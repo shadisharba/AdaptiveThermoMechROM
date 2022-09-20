@@ -1,9 +1,5 @@
 import numpy as np
 import numpy.linalg as la
-from scipy.optimize import minimize
-
-tol = 1e-12
-disp_option = False
 
 def naive(alpha, sampling_C, sampling_eps, ref_C, ref_eps):
     opt_C = np.empty_like(ref_C)
@@ -28,11 +24,7 @@ def opt1(sampling_C, sampling_eps, ref_C, ref_eps):
 
     for C_samples, eps_samples, C_ref, eps_ref in zip(sampling_C, sampling_eps, ref_C, ref_eps):
         C_normalization = C_ref.flatten() @ C_ref.flatten()
-        if C_normalization == 0:
-            C_normalization = 1
         eps_normalization = eps_ref.flatten() @ eps_ref.flatten()
-        if eps_normalization == 0:
-            eps_normalization = 1
 
         numerator += stiffness_weight * (explicit_minimizer_numerator(C_ref, *C_samples) / C_normalization)
         denominator += stiffness_weight * (explicit_minimizer_denominator(C_ref, *C_samples) / C_normalization)
@@ -58,11 +50,7 @@ def opt2(sampling_C, sampling_eps, ref_C, ref_eps):
 
     for C_samples, eps_samples, C_ref, eps_ref in zip(sampling_C, sampling_eps, ref_C, ref_eps):
         C_normalization = C_ref.flatten() @ C_ref.flatten()
-        if C_normalization == 0:
-            C_normalization = 1
         eps_normalization = eps_ref.flatten() @ eps_ref.flatten()
-        if eps_normalization == 0:
-            eps_normalization = 1
 
         numerator_c += explicit_minimizer_numerator(C_ref, *C_samples) / C_normalization
         denominator_c += explicit_minimizer_denominator(C_ref, *C_samples) / C_normalization
@@ -88,7 +76,6 @@ def opt4(sampling_C, sampling_eps, ref_C, ref_eps):
     for idx, (C_samples, eps_samples, C_ref, eps_ref) in enumerate(zip(sampling_C, sampling_eps, ref_C, ref_eps)):
         opt_alpha_C = explicit_minimizer(C_ref, *C_samples)
         opt_alpha_eps = explicit_minimizer(eps_ref, *eps_samples)
-
         opt_C[idx] = interpolate(opt_alpha_C, *C_samples)
         opt_eps[idx] = interpolate(opt_alpha_eps, *eps_samples)
     return opt_C, opt_eps

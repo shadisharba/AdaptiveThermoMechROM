@@ -1,44 +1,140 @@
-volume_fraction_family = 20
-idx = 0
+import numpy as np
+from pathlib import Path as path
+
 microstructures = [{
     'data_path': '/ms_1p/dset0_sim',
-    'file_name': "input/striped_normal_4x4x4.h5",
-    'temp1': 293,
-    'temp2': 1300
-}, {
-    'data_path': '/diamond/512x512x512/ms0_sim',
-    'file_name': "input/octahedron_central_normal_4x4x4_1000K.h5",
+    'file_name': path("input/striped_normal_4x4x4.h5"),
     'temp1': 300,
-    'temp2': 1000
-}, {
-    'data_path': '/diamond/512x512x512/ms0_sim',
-    'file_name': "input/octahedron_central_normal_4x4x4_1300K.h5",
-    'temp1': 293,
-    'temp2': 1300
+    'temp2': 1300,
+    'n_tests': 100,
+    'sampling_alphas': None
 }, {
     'data_path': '/ms_1p/dset0_sim',
-    'file_name': "input/octahedron_normal_8x8x8.h5",
-    'temp1': 293,
-    'temp2': 1300
+    'file_name': path("input/sphere_normal_16x16x16_10samples.h5"),
+    'temp1': 300,
+    'temp2': 1300,
+    'n_tests': 10,
+    'sampling_alphas': None
 }, {
     'data_path': '/ms_1p/dset0_sim',
-    'file_name': "/home/alameddin/0deleteme/z_del_sync_dae/affine_thermoelastic_solver_python/input/octahedron_combo_32x32x32.h5",
-    'temp1': 293,
-    'temp2': 1300
+    'file_name': path("input/sphere_normal_32x32x32_10samples.h5"),
+    'temp1': 300,
+    'temp2': 1300,
+    'n_tests': 10,
+    'sampling_alphas': None
 }, {
-    'data_path': f'/image_data/dset_{idx}_sim',
+    'data_path': '/ms_1p/dset0_sim',
+    'file_name': path("input/sphere_combo_16x16x16_10samples.h5"),
+    'temp1': 300,
+    'temp2': 1300,
+    'n_tests': 10,
+    'sampling_alphas': None
+}, {
+    'data_path': '/ms_1p/dset0_sim',
+    'file_name': path("input/octahedron_normal_16x16x16_10samples.h5"),
+    'temp1': 300,
+    'temp2': 1300,
+    'n_tests': 10,
+    'sampling_alphas': None
+}, {
+    'data_path': '/ms_1p/dset0_sim',
+    'file_name': path("input/octahedron_combo_16x16x16_10samples.h5"),
+    'temp1': 300,
+    'temp2': 1300,
+    'n_tests': 10,
+    'sampling_alphas': None
+}, {
+    'data_path':
+    '/ms_1p/dset0_sim',
     'file_name':
-    f"/home/alameddin/0deleteme/z_del_sync_dae/affine_thermoelastic_solver_python/input/generated_rve10_vol{volume_fraction_family}.h5",
-    'temp1': 293,
-    'temp2': 1300
+    path("input/octahedron_combo_32x32x32.h5"),
+    'temp1':
+    300,
+    'temp2':
+    1300,
+    'n_tests':
+    100,
+    'sampling_alphas':
+    np.asarray([
+        np.asarray([0., 1.]),
+        np.asarray([0., 0.82828283, 1.]),
+        np.asarray([0., 0.82828283, 0.93939394, 1.]),
+        np.asarray([0., 0.60606061, 0.82828283, 0.93939394, 1.]),
+        np.asarray([0., 0.60606061, 0.82828283, 0.93939394, 0.97979798, 1.])
+    ], dtype=object)
 }, {
-    'data_path': f'/image_data/dset_{idx}_sim',
-    'file_name': "/home/alameddin/0deleteme/z_del_sync_dae/affine_thermoelastic_solver_python/input/generated_rve10_vol40.h5",
-    'temp1': 293,
-    'temp2': 1300
+    'data_path':
+    '/image_data/dset_0_sim',
+    'file_name':
+    path("input/random_rve_vol20.h5"),
+    'temp1':
+    300,
+    'temp2':
+    1300,
+    'n_tests':
+    100,
+    'sampling_alphas':
+    np.asarray([
+        np.asarray([0., 1.]),
+        np.asarray([0., 0.85858586, 1.]),
+        np.asarray([0., 0.85858586, 0.94949495, 1.]),
+        np.asarray([0., 0.66666667, 0.85858586, 0.94949495, 1.]),
+        np.asarray([0., 0.66666667, 0.85858586, 0.94949495, 0.97979798, 1.]),
+        np.asarray([0., 0.46464646, 0.66666667, 0.85858586, 0.94949495, 0.97979798, 1.]),
+        np.asarray([0., 0.46464646, 0.66666667, 0.77777778, 0.85858586, 0.94949495, 0.97979798, 1.]),
+        np.asarray([0., 0.46464646, 0.66666667, 0.77777778, 0.85858586, 0.90909091, 0.94949495, 0.97979798, 1.]),
+        np.asarray([0., 0.46464646, 0.66666667, 0.77777778, 0.85858586, 0.90909091, 0.94949495, 0.97979798, 0.98989899, 1.]),
+        np.asarray(
+            [0., 0.46464646, 0.66666667, 0.77777778, 0.85858586, 0.90909091, 0.94949495, 0.96969697, 0.97979798, 0.98989899, 1.])
+    ], dtype=object)
 }, {
-    'data_path': f'/image_data/dset_{idx}_sim',
-    'file_name': '/home/alameddin/0deleteme/z_del_sync_dae/affine_thermoelastic_solver_python/input/generated_rve10_vol60.h5',
-    'temp1': 293,
-    'temp2': 1300
+    'data_path':
+    '/image_data/dset_0_sim',
+    'file_name':
+    path("input/random_rve_vol40.h5"),
+    'temp1':
+    300,
+    'temp2':
+    1300,
+    'n_tests':
+    100,
+    'sampling_alphas':
+    np.asarray([
+        np.asarray([0., 1.]),
+        np.asarray([0., 0.8989899, 1.]),
+        np.asarray([0., 0.8989899, 0.96969697, 1.]),
+        np.asarray([0., 0.71717172, 0.8989899, 0.96969697, 1.]),
+        np.asarray([0., 0.51515152, 0.71717172, 0.8989899, 0.96969697, 1.]),
+        np.asarray([0., 0.51515152, 0.71717172, 0.8989899, 0.93939394, 0.96969697, 1.]),
+        np.asarray([0., 0.51515152, 0.71717172, 0.82828283, 0.8989899, 0.93939394, 0.96969697, 1.]),
+        np.asarray([0., 0.51515152, 0.71717172, 0.82828283, 0.8989899, 0.93939394, 0.96969697, 0.98989899, 1.]),
+        np.asarray([0., 0.51515152, 0.71717172, 0.82828283, 0.8989899, 0.93939394, 0.96969697, 0.97979798, 0.98989899, 1.]),
+        np.asarray(
+            [0., 0.33333333, 0.51515152, 0.71717172, 0.82828283, 0.8989899, 0.93939394, 0.96969697, 0.97979798, 0.98989899, 1.])
+    ], dtype=object)
+}, {
+    'data_path':
+    '/image_data/dset_0_sim',
+    'file_name':
+    path('input/random_rve_vol60.h5'),
+    'temp1':
+    300,
+    'temp2':
+    1300,
+    'n_tests':
+    100,
+    'sampling_alphas':
+    np.asarray([
+        np.asarray([0., 1.]),
+        np.asarray([0., 0.8989899, 1.]),
+        np.asarray([0., 0.72727273, 0.8989899, 1.]),
+        np.asarray([0., 0.72727273, 0.8989899, 0.96969697, 1.]),
+        np.asarray([0., 0.52525253, 0.72727273, 0.8989899, 0.96969697, 1.]),
+        np.asarray([0., 0.52525253, 0.72727273, 0.83838384, 0.8989899, 0.96969697, 1.]),
+        np.asarray([0., 0.52525253, 0.72727273, 0.83838384, 0.8989899, 0.93939394, 0.96969697, 1.]),
+        np.asarray([0., 0.52525253, 0.72727273, 0.83838384, 0.8989899, 0.93939394, 0.96969697, 0.98989899, 1.]),
+        np.asarray([0., 0.34343434, 0.52525253, 0.72727273, 0.83838384, 0.8989899, 0.93939394, 0.96969697, 0.98989899, 1.]),
+        np.asarray(
+            [0., 0.34343434, 0.52525253, 0.72727273, 0.78787879, 0.83838384, 0.8989899, 0.93939394, 0.96969697, 0.98989899, 1.])
+    ], dtype=object)
 }]

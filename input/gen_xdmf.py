@@ -25,10 +25,7 @@ def get_node_info(name, node):
         if '_L' not in node.name and '_sim' not in node.name:
             datasets.append([node.name, node.shape])
 
-files = [
-    'octahedron_combo_32x32x32.h5', 'octahedron_central_normal_4x4x4_1000K.h5', 'octahedron_central_normal_4x4x4_1300K.h5',
-    'octahedron_normal_8x8x8.h5', 'striped_normal_4x4x4.h5'
-]
+files = ['octahedron_combo_32x32x32.h5']
 
 for file in files:
     input_file = path(file)
